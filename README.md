@@ -24,7 +24,8 @@ Existerar. Hemlig.
 4. Programmering:
    - **Sensorernas mjukvara.** Skicka uppsnappade wifiramar till en central server.
    - **Centrala servern.** Behandling och analys av wifiramar. Platsbestämning.
-5. Mätning av precision. Tar kanske en timme.
+5. Mätning av precision.
+6. Skriva.
 
 ## Tidsplan
 
@@ -34,3 +35,4 @@ Existerar. Hemlig.
 - Steg 1 beräknas ta två veckor.
 - Sensorerna ska vara oss tillhanda i början av oktober.
 - Steg 3–5 ska tillsammans ta två veckor.
+- Resten av gymnasiearbetestiden går åt till att skriva.
