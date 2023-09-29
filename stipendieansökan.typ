@@ -9,7 +9,7 @@
 #text(2em, weight: 700, [Stipendieansökan för gymnasiearbete])
 
 #grid(
-  columns: (1fr, 1fr),  
+  columns: (1fr, 1fr),
   [
     *Åke Amcoff* \
     ake.amcoff\@elevmail.stockholm.se \
@@ -22,7 +22,7 @@
   ]
 )
 
-#v(2.4em)
+#v(2em)
 
 #set par(justify: true)
 
