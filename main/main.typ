@@ -1,7 +1,7 @@
 #import "template.typ": *
 
 #show: project.with(
-  title: "Platsbestämning av wifi-klienter utifrån signalers infallande vinklar",
+  title: "Platsbestämning av wifiklienter utifrån signalers infallande vinklar",
   authors: (
     "Åke Amcoff",
     "Jarl Åkesson",
