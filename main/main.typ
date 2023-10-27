@@ -1,7 +1,7 @@
 #import "template.typ": *
 
 #show: project.with(
-  title: "Platsbestämning av wifiklienter utifrån signalers infallande vinklar",
+  title: "Passiv lokalisering av wifiklienter",
   authors: (
     "Åke Amcoff",
     "Jarl Åkesson",
@@ -12,7 +12,15 @@
 
 = Inledning
 
+#lorem(200)
+
 = Metod
+
+#lorem(70)
+
+== Sensorer
+
+#lorem(100)
 
 = Resultat och analys
 
@@ -22,6 +30,6 @@
 
 = Tillkännagivanden
 
-Hej. @indoorblwifi
+Hej. #cite("indoorblwifi", "ubilocate")
 
 #bibliography(style: "apa", "bibliography.bib")

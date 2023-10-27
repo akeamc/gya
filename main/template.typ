@@ -44,12 +44,20 @@
   v(2.4fr)
   pagebreak()
 
-  set page(numbering: "1", number-align: center)
+  set page(
+    numbering: "1",
+    number-align: center,
+    header: [
+      #set text(8pt)
+      #smallcaps([Amcoff och Åkesson: #title])
+      #h(1fr) #date
+    ],
+  )
   counter(page).update(1)
 
   // Abstract page.
   v(1fr)
-align(center)[
+  align(center)[
     #heading(
       outlined: false,
       numbering: none,

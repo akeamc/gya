@@ -6,7 +6,6 @@
 
 #show heading: set text(font: sans-font)
 
-
 #show regex("\d+\.\d+"): it => {
   show "." : ","
   it
@@ -71,7 +70,7 @@ _Vi ska sikta på att vara färdiga med själva laborationen innan jullovet. Pla
 
 - Stipendium för sensorer bör sökas så snart som möjligt.
 - Steg 1 beräknas ta två veckor.
-- Sensorerna ska vara oss tillhanda i början av oktober.
-- Steg 3--5 ska tillsammans ta två veckor.
+- Sensorerna ska vara oss tillhanda i början av november.
+- Steg 3--5 ska sammanlagt ta fyra veckor.
 - Resten av gymnasiearbetestiden går åt till att skriva.
 
