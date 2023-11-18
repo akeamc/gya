@@ -23,3 +23,21 @@ keywords = {CSI, wireless networks, indoor localization, AoA, ToF, 802.11ac},
 location = {Virtual Event, Wisconsin},
 series = {MobiSys '21}
 }
+
+@inproceedings{nexmon,
+author = {Gringoli, Francesco and Schulz, Matthias and Link, Jakob and Hollick, Matthias},
+title = {Free Your CSI: A Channel State Information Extraction Platform For Modern Wi-Fi Chipsets},
+year = {2019},
+isbn = {9781450369312},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3349623.3355477},
+doi = {10.1145/3349623.3355477},
+abstract = {Modern wireless transmission systems heavily benefit from knowing the channel response. The evaluation of Channel State Information (CSI) during the reception of a frame preamble is fundamental to properly equalizing the rest of the transmission at the receiver side. Reporting this state information back to the transmitter facilitates mechanisms such as beamforming and MIMO, thus boosting the network performance. While these features are an integral part of standards such as 802.11ac, accessing CSI data on commercial devices is either not possible, limited to outdated chipsets or very inflexible. This hinders the research and development of innovative CSI-dependent techniques including localization, object tracking, and interference evaluation. To help researchers and practitioners, we introduce the nexmon CSI Extractor Tool. It allows per-frame CSI extraction for up to four spatial streams using up to four receive chains on modern Broadcom and Cypress Wi-Fi chips with up to 80MHz bandwidth in both the 2.4 and 5GHz bands. The tool supports devices ranging from the low-cost Raspberry Pi platform, over mobile platforms such as Nexus smartphones to state-of-the-art Wi-Fi APs. We release all tools and Wi-Fi firmware patches as extensible open source project. It includes our user-friendly smartphone application to demonstrate the CSI extraction capabilities in form of a waterfall diagram.},
+booktitle = {Proceedings of the 13th International Workshop on Wireless Network Testbeds, Experimental Evaluation \& Characterization},
+pages = {21–28},
+numpages = {8},
+keywords = {ofdm, csi extraction, wi-fi, channel-state-information, 802.11},
+location = {Los Cabos, Mexico},
+series = {WiNTECH '19}
+}

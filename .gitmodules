@@ -1,0 +1,6 @@
+[submodule "UbiLocate"]
+	path = UbiLocate
+	url = https://github.com/IMDEANetworksWNG/UbiLocate.git
+[submodule "nexmon_csi"]
+	path = nexmon_csi
+	url = https://github.com/seemoo-lab/nexmon_csi

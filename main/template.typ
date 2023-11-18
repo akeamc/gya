@@ -3,6 +3,7 @@
 // Go ahead and customize it to your liking!
 #let project(
   title: "",
+  sammanfattning: [],
   abstract: [],
   authors: (),
   date: none,
@@ -21,12 +22,20 @@
 
   // Title page.
   // The page can contain a logo if you pass one with `logo: "logo.png"`.
-  if logo != none {
-    align(left, image(logo, width: 20%))
-  }
+  grid(
+    columns: (1fr, 20%),
+    text(1.1em, [
+      Södra Latins gymnasium, Stockholm \
+      #authors.join("\n") \
+      #date \
+      (Datum för inlämning reviderad version 1) \
+      (Datum för inlämning reviderad version 2)
+    ]),
+    image(logo, width: 100%)
+  )
+  
   v(9.6fr)
 
-  text(1.1em, date)
   v(1.2em, weak: true)
   text(2em, weight: 700, font: sans-font, tracking: -0.02em, title)
 
@@ -42,6 +51,9 @@
   )
 
   v(2.4fr)
+
+  align(right, text(1.1em, "Handledare: Rickard Fors"))
+  
   pagebreak()
 
   set page(
@@ -58,6 +70,13 @@
   // Abstract page.
   v(1fr)
   align(center)[
+    #heading(
+      outlined: false,
+      numbering: none,
+      text(0.85em, smallcaps[Sammanfattning]),
+    )
+    #sammanfattning
+
     #heading(
       outlined: false,
       numbering: none,
