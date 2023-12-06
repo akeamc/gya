@@ -1,10 +1,9 @@
 use std::f32::consts::PI;
 
+use dumpster::csi;
 use image::{ImageBuffer, Rgb, RgbImage};
 use num_complex::Complex;
 use palette::{rgb::Rgba, Hsl, IntoColor};
-
-pub mod csi;
 
 // fn unpack_float(buf: &[u8], csi: &mut Vec<Complex<f32>>, nfft: usize, M: usize, E: usize, endian: char) {
 //     let nbits = 10;
@@ -84,6 +83,37 @@ pub mod csi;
 //     }
 // }
 
+fn plot_angles(nums: &[Complex<f32>]) -> anyhow::Result<()> {
+    use plotters::prelude::*;
+
+    let drawing_area = BitMapBackend::new("plot.png", (1024, 768)).into_drawing_area();
+
+    drawing_area.fill(&WHITE).unwrap();
+
+    let mut chart_builder = ChartBuilder::on(&drawing_area);
+    chart_builder
+        .margin(10)
+        .set_left_and_bottom_label_area_size(20);
+
+    let mut chart_context = chart_builder
+        .build_cartesian_2d(0.0..(nums.len() as f64), 0.0..std::f64::consts::PI)
+        .unwrap();
+
+    chart_context.configure_mesh().draw()?;
+    chart_context.draw_series(LineSeries::new(
+        nums.iter()
+            .enumerate()
+            .map(|(i, z)| (i as f64, z.arg() as f64)),
+        BLACK,
+    ))?;
+    // chart_context.draw_series(LineSeries::new(x_values.map(|x| (x, 2.5 - 0.05 * x * x)), RED)
+    // .point_size(5)).unwrap();
+    // chart_context.draw_series(LineSeries::new(x_values.map(|x| (x, 2. - 0.1 * x * x)), BLUE.filled())
+    // .point_size(4)).unwrap();
+
+    Ok(())
+}
+
 /// Plot a complex vector as an image.
 fn plot_complex(nums: &[Complex<f32>], width: u32, height: u32) -> RgbImage {
     let mut image = RgbImage::new(width, height);
@@ -98,9 +128,9 @@ fn plot_complex(nums: &[Complex<f32>], width: u32, height: u32) -> RgbImage {
         let x = i as u32 % width;
         let y = i as u32 / width;
 
-        let l = (1. - c.norm() / max_norm) / 2.;
+        // let l = (1. - c.norm() / max_norm) / 2.;
         // let l = 0.5 * c.norm() / max_norm;
-        // let l = 0.5;
+        let l = 0.5;
 
         let color: Rgba = Hsl::new((c.arg() + PI).to_degrees(), 1.0, l).into_color();
         // let color: Rgba = Rgba::new(l, l, l, 1.0);
@@ -135,7 +165,11 @@ fn main() -> anyhow::Result<()> {
 
         // dbg!(csi.len());
 
+        plot_angles(&frame.csi_values);
+
         csi.extend_from_slice(&frame.csi_values);
+
+        todo!();
 
         // for (i, c) in csi.iter().enumerate() {
         //     let x = cnt;

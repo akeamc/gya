@@ -27,6 +27,7 @@ use num_complex::Complex;
 /// A reported CSI frame.
 #[derive(Debug, Clone)]
 pub struct Frame {
+    /// Received signal strength indicator (dBi).
     pub rssi: i8,
     pub frame_control: u8,
     pub source_mac: MacAddr6,
@@ -100,6 +101,10 @@ impl Frame {
         let chan_spec = u16::from_le_bytes([b[56], b[57]]);
         let csi_values = unpack_csi(Bandwidth::from_chan_spec(chan_spec), &b[60..]);
 
+        let chip = u16::from_le_bytes([b[58], b[59]]);
+
+        assert_eq!(chip, 106, "chip is not BCM4366c0");
+
         Ok(Self {
             rssi: b[44] as i8,
             frame_control: b[45],
@@ -109,18 +114,43 @@ impl Frame {
             // core,
             // spatial,
             chan_spec,
-            chip: u16::from_le_bytes([b[58], b[59]]),
+            chip,
             csi_values,
         })
     }
 }
 
-/// CSI values are encoded in 32 bits each:
+/// Unpacks a complex value from the given 32-bit integer.
+///
+/// The BCM4366c0 encodes each CSI value in 32 bits:
 ///
 /// ```text
-/// sign(1) | re(12) | sign(1) | im(12) | exp(6)
+/// | sign(1) | re(12) | sign(1) | im(12) | exp(6) |
+/// ```
+///
+/// [GitHub source](https://github.com/seemoo-lab/nexmon_csi/blob/fdb25ef0e4e1402e968bb644d4914ad1a3d0a84d/src/csi_extractor.c#L244-L246)
+///
+/// ```
+/// # use dumpster::csi::unpack_complex;
+/// let z = unpack_complex(0b1_000000000001_0_000000000010_000011);
+///
+/// assert_eq!(z.re, -8.0);
+/// assert_eq!(z.im, 16.0);
 /// ```
 pub fn unpack_complex(i: u32) -> Complex<f32> {
+    // unpack_float_acphy(
+    //   nbits: 10,
+    //   autoscale: 0,
+    //   shft: 0,
+    //   fmt: 1,
+    //   nman: 12,
+    //   nexp: 6,
+    //   *nfftp,
+    //   H,
+    //   Hout,
+    // );
+    // https://github.com/seemoo-lab/nexmon_csi/blob/fdb25ef0e4e1402e968bb644d4914ad1a3d0a84d/utils/matlab/unpack_float.c#L119
+
     const MAN_MASK: u32 = 0b111111111111; // 12 bits
     const E_MASK: u32 = 0b111111; // 6 bits
 
@@ -130,14 +160,14 @@ pub fn unpack_complex(i: u32) -> Complex<f32> {
         exp -= 1 << 6;
     }
 
-    let mut re = ((i >> 18) & MAN_MASK) as i32;
-    if i & 1 << 29 != 0 {
+    let mut re = ((i >> 19) & MAN_MASK) as i32;
+    if i & 1 << 31 != 0 {
         // sign bit for real part is set
         re = -re;
     }
 
     let mut im = ((i >> 6) & MAN_MASK) as i32;
-    if i & 1 << 17 != 0 {
+    if i & 1 << 18 != 0 {
         // sign bit for imaginary part is set
         im = -im;
     }
@@ -158,30 +188,24 @@ pub fn unpack_complex(i: u32) -> Complex<f32> {
 ///
 /// Panics if the buffer is too short (`< 3.2 * <bandwidth in MHz>`).
 fn unpack_csi(bw: Bandwidth, b: &[u8]) -> Vec<Complex<f32>> {
-    // nfft = bw * 3.2
-    let nfft = match bw {
+    // nsub = bw * 3.2
+    let nsub = match bw {
         Bandwidth::Bw20 => 64,
         Bandwidth::Bw40 => 128,
         Bandwidth::Bw80 => 256,
         Bandwidth::Bw160 => 512,
     };
 
-    assert!(b.len() >= nfft * 4, "not enough data");
+    assert!(b.len() >= nsub * 4, "not enough data");
 
-    // unpack_float_acphy(
-    //   nbits: 10,
-    //   autoscale: 0,
-    //   shft: 0,
-    //   fmt: 1,
-    //   nman: 12,
-    //   nexp: 6,
-    //   *nfftp,
-    //   H,
-    //   Hout,
-    // );
-
-    b.chunks_exact(4)
+    let mut csi = b
+        .chunks_exact(4)
         .map(|b| u32::from_le_bytes(b.try_into().unwrap()))
         .map(unpack_complex)
-        .collect()
+        .collect::<Vec<_>>();
+
+    let n = csi.len() / 2;
+    csi.rotate_right(n);
+
+    csi
 }
