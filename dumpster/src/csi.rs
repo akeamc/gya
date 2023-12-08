@@ -43,7 +43,7 @@ pub struct Frame {
 }
 
 /// Channel bandwidth.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Bandwidth {
     /// 20 MHz
     Bw20,
@@ -99,11 +99,11 @@ impl Frame {
         // let spatial = ((b[10] | b[11]) >> 3) & 0x7;
 
         let chan_spec = u16::from_le_bytes([b[56], b[57]]);
-        let csi_values = unpack_csi(Bandwidth::from_chan_spec(chan_spec), &b[60..]);
-
         let chip = u16::from_le_bytes([b[58], b[59]]);
 
         assert_eq!(chip, 106, "chip is not BCM4366c0");
+
+        let csi_values = unpack_csi(Bandwidth::from_chan_spec(chan_spec), &b[60..]);
 
         Ok(Self {
             rssi: b[44] as i8,

@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::{f32::consts::PI, ops::Range};
 
 use dumpster::csi;
 use image::{ImageBuffer, Rgb, RgbImage};
@@ -83,10 +83,10 @@ use palette::{rgb::Rgba, Hsl, IntoColor};
 //     }
 // }
 
-fn plot_angles(nums: &[Complex<f32>]) -> anyhow::Result<()> {
+fn plot_n(nums: &[f32], y_spec: Range<f64>, path: impl AsRef<std::path::Path>) -> anyhow::Result<()> {
     use plotters::prelude::*;
 
-    let drawing_area = BitMapBackend::new("plot.png", (1024, 768)).into_drawing_area();
+    let drawing_area = BitMapBackend::new(&path, (1024, 768)).into_drawing_area();
 
     drawing_area.fill(&WHITE).unwrap();
 
@@ -96,20 +96,47 @@ fn plot_angles(nums: &[Complex<f32>]) -> anyhow::Result<()> {
         .set_left_and_bottom_label_area_size(20);
 
     let mut chart_context = chart_builder
-        .build_cartesian_2d(0.0..(nums.len() as f64), 0.0..std::f64::consts::PI)
+        .build_cartesian_2d(0.0..(nums.len() as f64), y_spec)
         .unwrap();
 
     chart_context.configure_mesh().draw()?;
     chart_context.draw_series(LineSeries::new(
         nums.iter()
             .enumerate()
-            .map(|(i, z)| (i as f64, z.arg() as f64)),
+            .map(|(i, a)| (i as f64, *a as f64)),
         BLACK,
     ))?;
     // chart_context.draw_series(LineSeries::new(x_values.map(|x| (x, 2.5 - 0.05 * x * x)), RED)
     // .point_size(5)).unwrap();
     // chart_context.draw_series(LineSeries::new(x_values.map(|x| (x, 2. - 0.1 * x * x)), BLUE.filled())
     // .point_size(4)).unwrap();
+
+    Ok(())
+}
+
+fn plot_angles(nums: &[Complex<f32>]) -> anyhow::Result<()> {
+    plot_n(
+        &nums.iter().map(|z| z.arg()).collect::<Vec<_>>(),
+        0.0..std::f64::consts::PI,
+        "angles.png"
+    )
+}
+
+fn plot_mag(nums: &[Complex<f32>]) -> anyhow::Result<()> {
+    let norms = nums.iter().map(|z| z.norm()).collect::<Vec<_>>();
+    let max = norms
+        .iter()
+        .max_by(|a, b| a.partial_cmp(b).unwrap())
+        .unwrap();
+    let norms = norms.iter().map(|n| n / max).collect::<Vec<_>>();
+
+    dbg!(max);
+
+    plot_n(
+        &norms,
+        0.0..1.0,
+        "mag.png"
+    )?;
 
     Ok(())
 }
@@ -165,7 +192,8 @@ fn main() -> anyhow::Result<()> {
 
         // dbg!(csi.len());
 
-        plot_angles(&frame.csi_values);
+        plot_angles(&frame.csi_values)?;
+        plot_mag(&frame.csi_values)?;
 
         csi.extend_from_slice(&frame.csi_values);
 
