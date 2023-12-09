@@ -1,3 +1,8 @@
 [workspace]
 resolver = "2"
-members = ["dumpster", "makecsiparams", "makecsiparams-sys"]
+members = ["dumpster", "makecsiparams", "makecsiparams-sys", "sensor"]
+
+[patch.crates-io]
+async-ssh2-tokio = { git = "https://github.com/akeamc/async-ssh2-tokio" }
+russh = { git = "https://github.com/akeamc/russh" }
+russh-keys = { git = "https://github.com/akeamc/russh" }
