@@ -83,7 +83,11 @@ use palette::{rgb::Rgba, Hsl, IntoColor};
 //     }
 // }
 
-fn plot_n(nums: &[f32], y_spec: Range<f64>, path: impl AsRef<std::path::Path>) -> anyhow::Result<()> {
+fn plot_n(
+    nums: &[f32],
+    y_spec: Range<f64>,
+    path: impl AsRef<std::path::Path>,
+) -> anyhow::Result<()> {
     use plotters::prelude::*;
 
     let drawing_area = BitMapBackend::new(&path, (1024, 768)).into_drawing_area();
@@ -101,9 +105,7 @@ fn plot_n(nums: &[f32], y_spec: Range<f64>, path: impl AsRef<std::path::Path>) -
 
     chart_context.configure_mesh().draw()?;
     chart_context.draw_series(LineSeries::new(
-        nums.iter()
-            .enumerate()
-            .map(|(i, a)| (i as f64, *a as f64)),
+        nums.iter().enumerate().map(|(i, a)| (i as f64, *a as f64)),
         BLACK,
     ))?;
     // chart_context.draw_series(LineSeries::new(x_values.map(|x| (x, 2.5 - 0.05 * x * x)), RED)
@@ -118,7 +120,7 @@ fn plot_angles(nums: &[Complex<f32>]) -> anyhow::Result<()> {
     plot_n(
         &nums.iter().map(|z| z.arg()).collect::<Vec<_>>(),
         0.0..std::f64::consts::PI,
-        "angles.png"
+        "angles.png",
     )
 }
 
@@ -132,11 +134,7 @@ fn plot_mag(nums: &[Complex<f32>]) -> anyhow::Result<()> {
 
     dbg!(max);
 
-    plot_n(
-        &norms,
-        0.0..1.0,
-        "mag.png"
-    )?;
+    plot_n(&norms, 0.0..1.0, "mag.png")?;
 
     Ok(())
 }

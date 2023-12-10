@@ -54,8 +54,9 @@ fn bands(ctl_ch: u8, bw: Bandwidth) -> (u8, u8) {
     panic!("invalid channel");
 }
 
+#[derive(Debug, Clone, Copy)]
 /// A chanspec holds the channel number, band, bandwidth and control sideband.
-pub struct ChanSpec(u16);
+pub struct ChanSpec(pub(crate) u16);
 
 impl ChanSpec {
     const CENTER_SHIFT: u8 = 0;
@@ -98,19 +99,19 @@ impl ChanSpec {
     }
 }
 
-struct CsiParams {
-    chan_spec: ChanSpec,
-    csi_collect: bool,
-    core_mask: u8,
-    nss_mask: u8,
-    first_pkt_byte: Option<u8>,
+pub struct CsiParams {
+    pub chan_spec: ChanSpec,
+    pub csi_collect: bool,
+    pub core_mask: u8,
+    pub nss_mask: u8,
+    pub first_pkt_byte: Option<u8>,
     /// Source MAC addresses to filter on. Maximum length is 4.
-    mac_addrs: Vec<MacAddr6>,
-    delay: u16,
+    pub mac_addrs: Vec<MacAddr6>,
+    pub delay: u16,
 }
 
 impl CsiParams {
-    fn to_bytes(&self) -> [u8; 34] {
+    pub fn to_bytes(&self) -> [u8; 34] {
         let mut out = [0u8; 34];
 
         out[0..2].copy_from_slice(&self.chan_spec.to_inner().to_le_bytes());
@@ -145,12 +146,12 @@ impl Display for CsiParams {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Band, Bandwidth, ChanSpec, CsiParams};
+    use super::{Band, Bandwidth, ChanSpec, CsiParams};
 
     #[test]
     fn it_works() {
         let params = CsiParams {
-            chan_spec: crate::ChanSpec::new(36, crate::Band::Band5G, Bandwidth::Bw40).unwrap(),
+            chan_spec: ChanSpec::new(36, Band::Band5G, Bandwidth::Bw40).unwrap(),
             csi_collect: true,
             core_mask: 0x5,
             nss_mask: 0x7,

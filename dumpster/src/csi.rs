@@ -24,6 +24,8 @@
 use macaddr::MacAddr6;
 use num_complex::Complex;
 
+use crate::params::{Bandwidth, ChanSpec};
+
 /// A reported CSI frame.
 #[derive(Debug, Clone)]
 pub struct Frame {
@@ -37,48 +39,22 @@ pub struct Frame {
     pub config: u16,
     // core: u8,
     // spatial: u8,
-    pub chan_spec: u16,
+    pub chan_spec: ChanSpec,
     pub chip: u16,
     pub csi_values: Vec<Complex<f32>>,
 }
 
-/// Channel bandwidth.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Bandwidth {
-    /// 20 MHz
-    Bw20,
-    /// 40 MHz
-    Bw40,
-    /// 80 MHz
-    Bw80,
-    /// 160 MHz
-    Bw160,
-}
-
-impl Bandwidth {
-    const fn from_chan_spec(chan_spec: u16) -> Self {
-        match chan_spec & 0b11 {
-            0b00 => Self::Bw20,
-            0b01 => Self::Bw40,
-            0b10 => Self::Bw80,
-            0b11 => Self::Bw160,
-            _ => unreachable!(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, thiserror::Error)]
 pub enum Error {
+    #[error("not enough bytes")]
     NotEnoughBytes,
+    #[error("not a Nexmon packet")]
     NotANexmonPacket,
+    #[error("missing magic bytes")]
     MissingMagicBytes,
 }
 
 impl Frame {
-    pub const fn bandwidth(&self) -> Bandwidth {
-        Bandwidth::from_chan_spec(self.chan_spec)
-    }
-
     pub fn from_slice(b: &[u8]) -> Result<Self, Error> {
         if b.len() < 60 {
             return Err(Error::NotEnoughBytes);
@@ -98,12 +74,12 @@ impl Frame {
         // let spatial = (b[11] >> 3) & 0b111;
         // let spatial = ((b[10] | b[11]) >> 3) & 0x7;
 
-        let chan_spec = u16::from_le_bytes([b[56], b[57]]);
+        let chan_spec = ChanSpec(u16::from_le_bytes([b[56], b[57]]));
         let chip = u16::from_le_bytes([b[58], b[59]]);
 
         assert_eq!(chip, 106, "chip is not BCM4366c0");
 
-        let csi_values = unpack_csi(Bandwidth::from_chan_spec(chan_spec), &b[60..]);
+        let csi_values = unpack_csi(chan_spec.bandwidth(), &b[60..]);
 
         Ok(Self {
             rssi: b[44] as i8,
