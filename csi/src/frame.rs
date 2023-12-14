@@ -26,25 +26,53 @@ use num_complex::Complex;
 
 use crate::params::{Bandwidth, ChanSpec};
 
+/// Error returned when the chip ID is invalid.
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("invalid chip id")]
+pub struct InvalidChip;
+
+/// Chip ID.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Chip {
+    /// Broadcom BCM4366c0, used in the Asus RT-AC86U router.
+    Bcm4366c0,
+}
+
+impl TryFrom<u16> for Chip {
+    type Error = InvalidChip;
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
+        match value {
+            106 => Ok(Self::Bcm4366c0),
+            _ => Err(InvalidChip),
+        }
+    }
+}
+
 /// A reported CSI frame.
 #[derive(Debug, Clone)]
 pub struct Frame {
     /// Received signal strength indicator (dBi).
     pub rssi: i8,
     pub frame_control: u8,
+    /// Transmitter MAC address.
     pub source_mac: MacAddr6,
     /// "The two byte sequence number of the Wi-Fi frame that triggered
     /// the collection of the CSI contained in this packet."
     pub seq_cnt: u16,
-    pub config: u16,
-    // core: u8,
-    // spatial: u8,
+    /// Core number.
+    pub core: u8,
+    /// Spatial stream number.
+    pub spatial: u8,
+    /// See the documentation for [`ChanSpec`].
     pub chan_spec: ChanSpec,
-    pub chip: u16,
+    /// Chip ID.
+    pub chip: Chip,
+    /// Complex CSI values.
     pub csi_values: Vec<Complex<f32>>,
 }
 
-#[derive(Debug, Clone, Copy, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum Error {
     #[error("not enough bytes")]
     NotEnoughBytes,
@@ -52,6 +80,8 @@ pub enum Error {
     NotANexmonPacket,
     #[error("missing magic bytes")]
     MissingMagicBytes,
+    #[error("invalid chip")]
+    InvalidChip(#[from] InvalidChip),
 }
 
 impl Frame {
@@ -68,16 +98,19 @@ impl Frame {
             return Err(Error::MissingMagicBytes);
         }
 
-        let config = u16::from_le_bytes([b[54], b[55]]);
-        // let frame_no = u16::from_le_bytes([b[11], b[12]]);
-        // let core = b[11] & 0b111;
-        // let spatial = (b[11] >> 3) & 0b111;
-        // let spatial = ((b[10] | b[11]) >> 3) & 0x7;
+        let config_bytes = [b[54], b[55]];
+        let mut config = u16::from_le_bytes(config_bytes);
+        // Some versions of nexutil seem to encode the config in big endian.
+        // If the config is larger than the maximum possible value, assume it's
+        // big endian.
+        if config > 0b111111 {
+            config = u16::from_be_bytes(config_bytes);
+        }
+        let core = (config & 0b111) as u8;
+        let spatial = ((config >> 3) & 0b111) as u8;
 
         let chan_spec = ChanSpec(u16::from_le_bytes([b[56], b[57]]));
-        let chip = u16::from_le_bytes([b[58], b[59]]);
-
-        assert_eq!(chip, 106, "chip is not BCM4366c0");
+        let chip = u16::from_le_bytes([b[58], b[59]]).try_into()?;
 
         let csi_values = unpack_csi(chan_spec.bandwidth(), &b[60..]);
 
@@ -86,9 +119,8 @@ impl Frame {
             frame_control: b[45],
             source_mac: MacAddr6::new(b[46], b[47], b[48], b[49], b[50], b[51]),
             seq_cnt: u16::from_le_bytes([b[52], b[53]]),
-            config,
-            // core,
-            // spatial,
+            core,
+            spatial,
             chan_spec,
             chip,
             csi_values,
@@ -107,7 +139,7 @@ impl Frame {
 /// [GitHub source](https://github.com/seemoo-lab/nexmon_csi/blob/fdb25ef0e4e1402e968bb644d4914ad1a3d0a84d/src/csi_extractor.c#L244-L246)
 ///
 /// ```
-/// # use dumpster::csi::unpack_complex;
+/// # use csi::frame::unpack_complex;
 /// let z = unpack_complex(0b1_000000000001_0_000000000010_000011);
 ///
 /// assert_eq!(z.re, -8.0);
@@ -162,7 +194,7 @@ pub fn unpack_complex(i: u32) -> Complex<f32> {
 ///
 /// # Panics
 ///
-/// Panics if the buffer is too short (`< 3.2 * <bandwidth in MHz>`).
+/// Panics if the buffer is too short (less than `3.2 * <bandwidth in MHz>`).
 fn unpack_csi(bw: Bandwidth, b: &[u8]) -> Vec<Complex<f32>> {
     // nsub = bw * 3.2
     let nsub = match bw {

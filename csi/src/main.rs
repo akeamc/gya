@@ -1,7 +1,7 @@
-use std::{f32::consts::PI, ops::Range};
+use std::{collections::HashMap, f32::consts::PI, ops::Range};
 
-use dumpster::csi;
-use image::{ImageBuffer, Rgb, RgbImage};
+use csi::frame;
+use image::{Rgb, RgbImage};
 use num_complex::Complex;
 use palette::{rgb::Rgba, Hsl, IntoColor};
 
@@ -177,25 +177,32 @@ fn main() -> anyhow::Result<()> {
     let mut cnt = 0;
     let mut csi = Vec::new();
 
-    while cnt < 4000 {
+    let mut groups = HashMap::<u16, Vec<_>>::new();
+
+    loop {
         let packet = match capture.next_packet() {
             Ok(packet) => packet,
             Err(pcap::Error::NoMorePackets) => break,
             Err(err) => panic!("error while reading packet: {}", err),
         };
 
-        let frame = csi::Frame::from_slice(&packet.data).unwrap();
+        let frame = frame::Frame::from_slice(packet.data).unwrap();
+
+        println!(
+            "{}\t{}\t{}\t{}\t{}",
+            frame.source_mac, frame.core, frame.spatial, packet.header.ts.tv_usec, frame.seq_cnt
+        );
 
         // bcm4366c0 returns floating point CSI
 
         // dbg!(csi.len());
 
-        plot_angles(&frame.csi_values)?;
-        plot_mag(&frame.csi_values)?;
+        // plot_angles(&frame.csi_values)?;
+        // plot_mag(&frame.csi_values)?;
 
         csi.extend_from_slice(&frame.csi_values);
 
-        todo!();
+        groups.entry(frame.seq_cnt).or_default().push(frame);
 
         // for (i, c) in csi.iter().enumerate() {
         //     let x = cnt;
@@ -219,6 +226,7 @@ fn main() -> anyhow::Result<()> {
     let image = plot_complex(&csi, cnt, csi.len() as u32 / cnt);
 
     println!("{} packets", cnt);
+    println!("{} groups", groups.len());
 
     image.save("csi.png")?;
 

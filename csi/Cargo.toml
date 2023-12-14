@@ -1,15 +1,15 @@
 [package]
-name = "dumpster"
+name = "csi"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 anyhow = "1.0.75"
-base64 = "0.21.5"
+base64 = "0.21"
+bitflags = "2.4"
 image = "0.24.7"
-macaddr = "1.0.1"
-memchr = "2.6.4"
-num-complex = "0.4.4"
+macaddr = "1.0"
+num-complex = "0.4"
 palette = "0.7.3"
 pcap = "1.1.0"
 plotters = "0.3.5"

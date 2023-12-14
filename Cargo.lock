@@ -467,6 +467,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "csi"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "bitflags 2.4.1",
+ "image",
+ "macaddr",
+ "num-complex",
+ "palette",
+ "pcap",
+ "plotters",
+ "thiserror",
+]
+
+[[package]]
 name = "ctr"
 version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -592,22 +608,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330c60081dcc4c72131f8eb70510f1ac07223e5d4163db481a04a0befcffa412"
 dependencies = [
  "libloading 0.8.1",
-]
-
-[[package]]
-name = "dumpster"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64",
- "image",
- "macaddr",
- "memchr",
- "num-complex",
- "palette",
- "pcap",
- "plotters",
- "thiserror",
 ]
 
 [[package]]
@@ -2041,7 +2041,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-ssh2-tokio",
- "dumpster",
+ "csi",
  "macaddr",
  "pcap-file-tokio",
  "russh",
