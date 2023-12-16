@@ -22,7 +22,7 @@
 //! [GitHub source](https://github.com/seemoo-lab/nexmon_csi/blob/fdb25ef0e4e1402e968bb644d4914ad1a3d0a84d/src/csi_extractor.c#L135-L146)
 
 use macaddr::MacAddr6;
-use num_complex::{Complex, ComplexFloat};
+use num_complex::Complex;
 use num_traits::Zero;
 
 use crate::params::{Bandwidth, ChanSpec};
@@ -70,7 +70,7 @@ pub struct Frame {
     /// Chip ID.
     pub chip: Chip,
     /// Complex CSI values.
-    pub csi_values: Vec<Complex<f32>>,
+    pub csi_values: Vec<Complex<f64>>,
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
@@ -113,7 +113,9 @@ impl Frame {
         let chan_spec = ChanSpec(u16::from_le_bytes([b[56], b[57]]));
         let chip = u16::from_le_bytes([b[58], b[59]]).try_into()?;
 
-        let csi_values = unpack_csi(chan_spec.bandwidth(), &b[60..]);
+        let mut csi_values = unpack_csi(chan_spec.bandwidth(), &b[60..]);
+        let n = csi_values.len() / 2;
+        csi_values.rotate_right(n);
 
         Ok(Self {
             rssi: b[44] as i8,
@@ -130,23 +132,7 @@ impl Frame {
 }
 
 /// Unpacks a complex value from the given 32-bit integer.
-///
-/// The BCM4366c0 encodes each CSI value in 32 bits:
-///
-/// ```text
-/// | sign(1) | re(12) | sign(1) | im(12) | exp(6) |
-/// ```
-///
-/// [GitHub source](https://github.com/seemoo-lab/nexmon_csi/blob/fdb25ef0e4e1402e968bb644d4914ad1a3d0a84d/src/csi_extractor.c#L244-L246)
-///
-/// ```
-/// # use csi::frame::unpack_complex;
-/// let z = unpack_complex(0b1_000000000001_0_000000000010_000011);
-///
-/// assert_eq!(z.re, -8.0);
-/// assert_eq!(z.im, 16.0);
-/// ```
-pub fn unpack_complex(i: u32) -> Complex<f32> {
+pub fn unpack_complex(i: u32) -> Complex<f64> {
     // unpack_float_acphy(
     //   nbits: 10,
     //   autoscale: 0,
@@ -192,27 +178,22 @@ pub fn unpack_complex(i: u32) -> Complex<f32> {
     }
 
     if exp < 0 {
-        re = re.checked_shr(-exp as _).unwrap_or(0);
-        im = im.checked_shr(-exp as _).unwrap_or(0);
+        re = re.overflowing_shr(-exp as _).0;
+        im = im.overflowing_shr(-exp as _).0;
     } else {
-        re = re.checked_shl(exp as _).unwrap_or(0);
-        im = im.checked_shl(exp as _).unwrap_or(0);
+        re = re.overflowing_shl(exp as _).0;
+        im = im.overflowing_shl(exp as _).0;
     }
 
-    println!("re: {re}, im: {im}");
-
-    Complex::new(re as f32, im as f32)
+    Complex::new(re as f64, im as f64)
 }
 
 /// Unpacks the CSI values from the given buffer.
 ///
-/// The complex values are expected to be encoded in 32 bits each, with
-/// 11 bits for each mantissa and 6 bits for the exponent.
-///
 /// # Panics
 ///
 /// Panics if the buffer is too short (less than `3.2 * <bandwidth in MHz>`).
-pub fn unpack_csi(bw: Bandwidth, b: &[u8]) -> Vec<Complex<f32>> {
+pub fn unpack_csi(bw: Bandwidth, b: &[u8]) -> Vec<Complex<f64>> {
     // nsub = bw * 3.2
     let nsub = match bw {
         Bandwidth::Bw20 => 64,
@@ -223,14 +204,8 @@ pub fn unpack_csi(bw: Bandwidth, b: &[u8]) -> Vec<Complex<f32>> {
 
     assert!(b.len() >= nsub * 4, "not enough data");
 
-    let mut csi = b
-        .chunks_exact(4)
+    b.chunks_exact(4)
         .map(|b| u32::from_le_bytes(b.try_into().unwrap()))
         .map(unpack_complex)
-        .collect::<Vec<_>>();
-
-    let n = csi.len() / 2;
-    csi.rotate_right(n);
-
-    csi
+        .collect::<Vec<_>>()
 }

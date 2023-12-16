@@ -2229,10 +2229,17 @@ dependencies = [
 name = "nexmon-test"
 version = "0.1.0"
 dependencies = [
+ "csi",
+ "nexmon-test-sys",
+ "num-complex",
+]
+
+[[package]]
+name = "nexmon-test-sys"
+version = "0.1.0"
+dependencies = [
  "bindgen",
  "cc",
- "csi",
- "num-complex",
 ]
 
 [[package]]

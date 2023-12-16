@@ -125,7 +125,7 @@ impl ChanSpec {
         Ok(Self(out))
     }
 
-    const fn to_inner(&self) -> u16 {
+    const fn to_inner(self) -> u16 {
         self.0
     }
 }

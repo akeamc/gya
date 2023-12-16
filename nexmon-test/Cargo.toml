@@ -6,9 +6,6 @@ edition = "2021"
 [dev-dependencies]
 csi = { path = "../csi" }
 
-[build-dependencies]
-bindgen = "0.69.1"
-cc = "1.0.83"
-
 [dependencies]
+nexmon-test-sys = { path = "nexmon-test-sys" }
 num-complex = "0.4.4"

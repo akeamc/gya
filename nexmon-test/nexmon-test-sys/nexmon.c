@@ -1,11 +1,11 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define k_tof_unpack_sgn_mask (1<<31)
+#define k_tof_unpack_sgn_mask (1 << 31)
 
-void unpack_float_acphy(int nbits, int autoscale, int shft, 
-                       int nman, int nexp, int nfft, 
-                       const uint32_t *H, int32_t *Hout)
+void unpack_float_acphy(int nbits, int autoscale, int shft,
+												int nman, int nexp, int nfft,
+												const uint32_t *H, int32_t *Hout)
 {
 	int e_p, maxbit, e, i, e_zero, sgn;
 	int n_out, e_shift;
@@ -13,30 +13,34 @@ void unpack_float_acphy(int nbits, int autoscale, int shft,
 	int32_t vi, vq, *pOut;
 	uint32_t x, iq_mask, e_mask, sgnr_mask, sgni_mask;
 
-    iq_mask = (1<<(nman-1))- 1;
-	e_mask = (1<<nexp)-1;
-	e_p = (1<<(nexp-1));
-    sgnr_mask = (1 << (nexp + 2*nman - 1));
-    sgni_mask = (sgnr_mask >> nman);
-    e_zero = -nman;
-    pOut = (int32_t*)Hout;
-    n_out = (nfft << 1);
-    e_shift = 1;
+	iq_mask = (1 << (nman - 1)) - 1;
+	e_mask = (1 << nexp) - 1;
+	e_p = (1 << (nexp - 1));
+	sgnr_mask = (1 << (nexp + 2 * nman - 1));
+	sgni_mask = (sgnr_mask >> nman);
+	e_zero = -nman;
+	pOut = (int32_t *)Hout;
+	n_out = (nfft << 1);
+	e_shift = 1;
 	maxbit = -e_p;
-	for (i = 0; i < nfft; i++) {
-        vi = (int32_t)((H[i] >> (nexp + nman)) & iq_mask);
-        vq = (int32_t)((H[i] >> nexp) & iq_mask);
-        e =   (int)(H[i] & e_mask);
+	for (i = 0; i < nfft; i++)
+	{
+		vi = (int32_t)((H[i] >> (nexp + nman)) & iq_mask);
+		vq = (int32_t)((H[i] >> nexp) & iq_mask);
+		e = (int)(H[i] & e_mask);
 		if (e >= e_p)
 			e -= (e_p << 1);
 		He[i] = (int8_t)e;
 		x = (uint32_t)vi | (uint32_t)vq;
 		// autoscale is typically false
-		if (autoscale && x) {
+		if (autoscale && x)
+		{
 			uint32_t m = 0xffff0000, b = 0xffff;
 			int s = 16;
-			while (s > 0) {
-				if (x & m) {
+			while (s > 0)
+			{
+				if (x & m)
+				{
 					e += s;
 					x >>= s;
 				}
@@ -47,31 +51,38 @@ void unpack_float_acphy(int nbits, int autoscale, int shft,
 			if (e > maxbit)
 				maxbit = e;
 		}
-        if (H[i] & sgnr_mask)
-            vi |= k_tof_unpack_sgn_mask;
-        if (H[i] & sgni_mask)
-            vq |= k_tof_unpack_sgn_mask;
-        Hout[i<<1] = vi;
-        Hout[(i<<1)+1] = vq;
+		if (H[i] & sgnr_mask)
+			vi |= k_tof_unpack_sgn_mask;
+		if (H[i] & sgni_mask)
+			vq |= k_tof_unpack_sgn_mask;
+		Hout[i << 1] = vi;
+		Hout[(i << 1) + 1] = vq;
 	}
-    shft = nbits - maxbit;
-	for (i = 0; i < n_out; i++) {
+	shft = nbits - maxbit;
+	for (i = 0; i < n_out; i++)
+	{
 		e = He[(i >> e_shift)] + shft; // FIXME
 		vi = *pOut;
 		sgn = 1;
-		if (vi & k_tof_unpack_sgn_mask) {
+		if (vi & k_tof_unpack_sgn_mask)
+		{
 			sgn = -1;
 			vi &= ~k_tof_unpack_sgn_mask;
 		}
-		if (e < e_zero) {
+		if (e < e_zero)
+		{
 			vi = 0;
-		} else if (e < 0) {
+		}
+		else if (e < 0)
+		{
 			e = -e;
 			vi = (vi >> e);
-		} else {
+		}
+		else
+		{
 			vi = (vi << e);
 		}
-		*pOut++ = (uint32_t)sgn*vi;
+		*pOut++ = (uint32_t)sgn * vi;
 	}
 }
 

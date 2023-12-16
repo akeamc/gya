@@ -1,13 +1,53 @@
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
+use nexmon_test_sys::{unpack_float_acphy, wiros_parse_csi};
+use num_complex::Complex;
 
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+pub fn acphy(input: &[u8]) -> Vec<Complex<f64>> {
+    let nfft = input.len() / 4;
+    let mut h_out = vec![0; nfft * 2];
+    unsafe {
+        // unpack_float_acphy(10, 0, 0, 1, 12, 6, *nfftp, H, Hout);
+        unpack_float_acphy(
+            10,
+            0,
+            0,
+            12,
+            6,
+            nfft as _,
+            input.as_ptr().cast(),
+            h_out.as_mut_ptr(),
+        );
+    }
+    h_out
+        .chunks_exact(2)
+        .map(|v| {
+            println!("{:?}", v);
+            Complex::new(v[0] as _, v[1] as _)
+        })
+        .collect::<Vec<_>>()
+}
+
+pub fn wiros(input: &[u8]) -> Vec<Complex<f64>> {
+    let n_sub = input.len() / 4;
+    let mut r_out = vec![0.0; n_sub];
+    let mut i_out = vec![0.0; n_sub];
+    unsafe {
+        wiros_parse_csi(
+            n_sub as _,
+            input.as_ptr().cast(),
+            r_out.as_mut_ptr(),
+            i_out.as_mut_ptr(),
+        );
+    }
+    r_out
+        .iter()
+        .zip(i_out.iter())
+        .map(|(r, i)| Complex::new(*r, *i))
+        .collect::<Vec<_>>()
+}
 
 #[cfg(test)]
 mod tests {
     use csi::params::Bandwidth;
-    use num_complex::Complex;
 
     use super::*;
 
@@ -71,34 +111,10 @@ mod tests {
         const NFFT: usize = 64;
 
         let input = &SAMPLE[..NFFT * 4];
-        let mut c_out = [0; NFFT * 2];
-        unsafe {
-            // unpack_float_acphy(10, 0, 0, 1, 12, 6, *nfftp, H, Hout);
-            unpack_float_acphy(
-                10,
-                0,
-                0,
-                12,
-                6,
-                NFFT as _,
-                input.as_ptr().cast(),
-                c_out.as_mut_ptr(),
-            );
-        }
-        let c_out = c_out
-            .chunks_exact(2)
-            .map(|v| {
-                println!("{v:?}");
-                Complex::<f32>::new(v[0] as _, v[1] as _)
-            })
-            .collect::<Vec<_>>();
-        let native = csi::frame::unpack_csi(Bandwidth::Bw20, &input[..]);
 
-        for (a, b) in native.iter().zip(c_out.iter()) {
-            // assert!((a - b).norm_sqr() < 1e-6);
-            println!("{a:?}\t\t\t\t{b:?}");
+        let a = acphy(input);
+        let b = csi::frame::unpack_csi(Bandwidth::Bw20, input);
 
-            todo!()
-        }
+        assert_eq!(a, b);
     }
 }

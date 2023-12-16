@@ -1,25 +1,22 @@
-use std::{collections::BTreeMap, pin::pin, sync::Arc, time::Duration};
+use std::{pin::pin, sync::Arc};
 
 use async_ssh2_tokio::client::{AuthMethod, Client, CommandExecutedResult, ServerCheckMethod};
 use async_stream::try_stream;
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use csi::{
-    frame::{self, Frame},
+    frame::Frame,
     params::{Band, Bandwidth, ChanSpec, Cores, Params, SpatialStreams},
 };
-use egui::{load::SizedTexture, TextureOptions};
-use futures::{future, Stream, StreamExt, TryStreamExt};
+use egui::load::SizedTexture;
+use futures::{Stream, StreamExt, TryStreamExt};
 use macaddr::MacAddr6;
-use num_complex::{Complex, ComplexFloat};
 use pcap_file_tokio::pcap::PcapReader;
-use russh::{client::Msg, Sig};
-use tokio::{
-    io::AsyncRead,
-    sync::{mpsc, watch, Mutex, RwLock},
-};
+use tokio::{io::AsyncRead, sync::mpsc};
 use tracing::info;
 
 const MACBOOK: MacAddr6 = MacAddr6::new(0x50, 0xED, 0x3C, 0x2E, 0x04, 0x00);
+
+const DIAGRAMS: usize = 16;
 
 async fn execute(client: &Client, command: impl AsRef<str>) -> anyhow::Result<()> {
     let command = command.as_ref();
@@ -55,8 +52,11 @@ async fn config(client: &Client, channel: u8, reload: bool) -> anyhow::Result<()
     let params = Params {
         chan_spec: ChanSpec::new(channel, Band::Band5G, Bandwidth::Bw80).unwrap(),
         csi_collect: true,
-        cores: Cores::CORE0 | Cores::CORE1 | Cores::CORE2,
-        spatial_streams: SpatialStreams::S0 | SpatialStreams::S1 | SpatialStreams::S2,
+        cores: Cores::CORE0 | Cores::CORE1 | Cores::CORE2 | Cores::CORE3,
+        spatial_streams: SpatialStreams::S0
+            | SpatialStreams::S1
+            | SpatialStreams::S2
+            | SpatialStreams::S3,
         first_pkt_byte: None,
         mac_addrs: vec![MACBOOK],
         // mac_addrs: vec![],
@@ -117,6 +117,7 @@ type Values = Vec<Frame>;
 struct Waterfall {
     image: image::RgbaImage,
     pos: u32,
+    prev_pos: u32,
 }
 
 impl Waterfall {
@@ -124,6 +125,7 @@ impl Waterfall {
         Self {
             image: image::RgbaImage::new(width, height),
             pos: 0,
+            prev_pos: 0,
         }
     }
 
@@ -135,15 +137,13 @@ impl Waterfall {
                 .csi_values
                 .iter()
                 .map(|z| z.norm_sqr())
-                .filter(|v| *v < 10000.)
                 .max_by(|a, b| a.partial_cmp(b).unwrap())
                 .unwrap()
                 .sqrt();
 
             for (j, v) in frame.csi_values.iter().enumerate() {
-                let mut c =
-                    grad.at(((v.arg() + std::f32::consts::PI) / std::f32::consts::TAU) as _);
-                let scale = (v.norm() / max) as f64;
+                let mut c = grad.at((v.arg() + std::f64::consts::PI) / std::f64::consts::TAU);
+                let scale = v.norm() / max;
                 c.r *= scale;
                 c.g *= scale;
                 c.b *= scale;
@@ -153,6 +153,7 @@ impl Waterfall {
             }
         }
 
+        self.prev_pos = self.pos;
         self.pos += 1;
         if self.pos == self.image.width() {
             self.pos = 0;
@@ -191,7 +192,7 @@ impl App {
             rx,
             cnt,
             texture: None,
-            waterfall: Waterfall::new(3000, 256 * 9),
+            waterfall: Waterfall::new(3000, 256 * DIAGRAMS as u32),
         }
     }
 }
@@ -204,18 +205,28 @@ fn egui_image(image: &image::RgbaImage) -> egui::ColorImage {
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let tex = self.texture.get_or_insert_with(|| {
             ctx.load_texture("img", egui_image(&self.waterfall.image), Default::default())
         });
 
         while let Ok(frames) = self.rx.try_recv() {
-            if frames.len() != 9 {
+            if frames.len() != DIAGRAMS {
                 continue;
             }
             self.waterfall.add(&frames);
         }
 
+        // tex.set_partial(
+        //     [self.waterfall.prev_pos as usize, 0],
+        //     egui_image(&self.waterfall.image.sub_image(
+        //         self.waterfall.prev_pos,
+        //         0,
+        //         1,
+        //         self.waterfall.image.height(),
+        //     ).to_image()),
+        //     Default::default(),
+        // );
         tex.set(egui_image(&self.waterfall.image), Default::default());
 
         egui::CentralPanel::default().show(ctx, |ui| {

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["csi", "sensor", "nexmon-test"]
+members = ["csi", "sensor", "nexmon-test", "nexmon-test/nexmon-test-sys"]
 
 [patch.crates-io]
 async-ssh2-tokio = { git = "https://github.com/akeamc/async-ssh2-tokio" }
