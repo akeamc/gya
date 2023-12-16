@@ -22,7 +22,8 @@
 //! [GitHub source](https://github.com/seemoo-lab/nexmon_csi/blob/fdb25ef0e4e1402e968bb644d4914ad1a3d0a84d/src/csi_extractor.c#L135-L146)
 
 use macaddr::MacAddr6;
-use num_complex::Complex;
+use num_complex::{Complex, ComplexFloat};
+use num_traits::Zero;
 
 use crate::params::{Bandwidth, ChanSpec};
 
@@ -159,32 +160,48 @@ pub fn unpack_complex(i: u32) -> Complex<f32> {
     // );
     // https://github.com/seemoo-lab/nexmon_csi/blob/fdb25ef0e4e1402e968bb644d4914ad1a3d0a84d/utils/matlab/unpack_float.c#L119
 
-    const MAN_MASK: u32 = 0b111111111111; // 12 bits
+    // const MAN_MASK: u32 = 0b111111111111; // 12 bits
+    const MAN_MASK: u32 = 0b11111111111; // 11 bits
     const E_MASK: u32 = 0b111111; // 6 bits
 
-    let mut exp = (i & E_MASK) as i32;
-    if exp >= 1 << 5 {
-        // exponent is negative
-        exp -= 1 << 6;
+    let exp = {
+        let mut exp = (i & E_MASK) as i32;
+        if exp >= 1 << 5 {
+            // exponent is negative
+            exp -= 1 << 6;
+        }
+        exp + 42
+    };
+
+    // exp < e_zero = -nman
+    if exp < -12 {
+        // exponent is too small
+        return Complex::zero();
     }
 
-    let mut re = ((i >> 19) & MAN_MASK) as i32;
-    if i & 1 << 31 != 0 {
+    let mut re = ((i >> 18) & MAN_MASK) as i32;
+    if i & 1 << 29 != 0 {
         // sign bit for real part is set
         re = -re;
     }
 
     let mut im = ((i >> 6) & MAN_MASK) as i32;
-    if i & 1 << 18 != 0 {
+    if i & 1 << 17 != 0 {
         // sign bit for imaginary part is set
         im = -im;
     }
 
-    // construct float from mantissas and exponent
-    let re = (re as f32) * (2f32.powi(exp));
-    let im = (im as f32) * (2f32.powi(exp));
+    if exp < 0 {
+        re = re.checked_shr(-exp as _).unwrap_or(0);
+        im = im.checked_shr(-exp as _).unwrap_or(0);
+    } else {
+        re = re.checked_shl(exp as _).unwrap_or(0);
+        im = im.checked_shl(exp as _).unwrap_or(0);
+    }
 
-    Complex::new(re, im)
+    println!("re: {re}, im: {im}");
+
+    Complex::new(re as f32, im as f32)
 }
 
 /// Unpacks the CSI values from the given buffer.
@@ -195,7 +212,7 @@ pub fn unpack_complex(i: u32) -> Complex<f32> {
 /// # Panics
 ///
 /// Panics if the buffer is too short (less than `3.2 * <bandwidth in MHz>`).
-fn unpack_csi(bw: Bandwidth, b: &[u8]) -> Vec<Complex<f32>> {
+pub fn unpack_csi(bw: Bandwidth, b: &[u8]) -> Vec<Complex<f32>> {
     // nsub = bw * 3.2
     let nsub = match bw {
         Bandwidth::Bw20 => 64,
