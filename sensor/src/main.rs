@@ -134,14 +134,14 @@ impl Waterfall {
 
         for (i, frame) in values.iter().enumerate() {
             let max = frame
-                .csi_values
+                .csi
                 .iter()
                 .map(|z| z.norm_sqr())
                 .max_by(|a, b| a.partial_cmp(b).unwrap())
                 .unwrap()
                 .sqrt();
 
-            for (j, v) in frame.csi_values.iter().enumerate() {
+            for (j, v) in frame.csi.iter().enumerate() {
                 let mut c = grad.at((v.arg() + std::f64::consts::PI) / std::f64::consts::TAU);
                 let scale = v.norm() / max;
                 c.r *= scale;

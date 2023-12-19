@@ -38,9 +38,9 @@ impl Bandwidth {
     }
 }
 
-fn bands(ctl_ch: u8, bw: Bandwidth) -> (u8, u8) {
+fn bands(ctl_ch: u8, bw: Bandwidth) -> Option<(u8, u8)> {
     let channels: &[u8] = match bw {
-        Bandwidth::Bw20 => return (ctl_ch, 0), // trivial case
+        Bandwidth::Bw20 => return Some((ctl_ch, 0)), // trivial case
         Bandwidth::Bw40 => &[38, 46, 54, 62, 102, 110, 118, 126, 134, 142, 151, 159],
         Bandwidth::Bw80 => &[42, 58, 106, 122, 138, 155],
         Bandwidth::Bw160 => &[50, 114],
@@ -59,10 +59,11 @@ fn bands(ctl_ch: u8, bw: Bandwidth) -> (u8, u8) {
             continue; // ctl_ch too high for this center channel
         }
 
-        return (*center, sb);
+        return Some((*center, sb));
     }
 
-    panic!("invalid channel");
+    // invalid channel
+    None
 }
 
 /// A chanspec holds the channel number, band, bandwidth and control sideband.
@@ -104,8 +105,10 @@ impl ChanSpec {
     }
 
     /// Construct a new chanspec.
-    pub fn new(channel: u8, band: Band, bandwidth: Bandwidth) -> Result<Self, ()> {
-        let (center, sideband) = bands(channel, bandwidth);
+    ///
+    /// If the parameters are invalid, this function will return `None`.
+    pub fn new(channel: u8, band: Band, bandwidth: Bandwidth) -> Option<Self> {
+        let (center, sideband) = bands(channel, bandwidth)?;
 
         let mut out = 0;
 
@@ -122,7 +125,7 @@ impl ChanSpec {
             Bandwidth::Bw160 => 0x2800,
         };
 
-        Ok(Self(out))
+        Some(Self(out))
     }
 
     const fn to_inner(self) -> u16 {

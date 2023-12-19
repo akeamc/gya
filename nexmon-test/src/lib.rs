@@ -47,8 +47,6 @@ pub fn wiros(input: &[u8]) -> Vec<Complex<f64>> {
 
 #[cfg(test)]
 mod tests {
-    use csi::params::Bandwidth;
-
     use super::*;
 
     #[test]
@@ -113,7 +111,7 @@ mod tests {
         let input = &SAMPLE[..NFFT * 4];
 
         let a = acphy(input);
-        let b = csi::frame::unpack_csi(Bandwidth::Bw20, input);
+        let b = csi::frame::unpack_csi(input);
 
         assert_eq!(a, b);
     }

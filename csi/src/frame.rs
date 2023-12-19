@@ -27,25 +27,35 @@ use num_traits::Zero;
 
 use crate::params::{Bandwidth, ChanSpec};
 
-/// Error returned when the chip ID is invalid.
-#[derive(Debug, Clone, thiserror::Error)]
+/// Error returned when the chip ID does not correspond to any of
+/// the [`Chip`] variants.
+#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
 #[error("invalid chip id")]
-pub struct InvalidChip;
+pub struct UnknownChip;
 
-/// Chip ID.
+/// Different types of WiFi chips.
+///
+/// `TryFrom<u16>` is implemented to convert a two-byte sequence into
+/// a `Chip` variant:
+/// ```
+/// # use std::convert::TryFrom;
+/// # use csi::frame::Chip;
+/// assert_eq!(Chip::try_from(0x006a), Ok(Chip::Bcm4366c0));
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Chip {
-    /// Broadcom BCM4366c0, used in the Asus RT-AC86U router.
+    /// Broadcom BCM4366c0, used in the Asus RT-AC86U router. This is represented
+    /// by the two-byte sequence `0x006a`.
     Bcm4366c0,
 }
 
 impl TryFrom<u16> for Chip {
-    type Error = InvalidChip;
+    type Error = UnknownChip;
 
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
             106 => Ok(Self::Bcm4366c0),
-            _ => Err(InvalidChip),
+            _ => Err(UnknownChip),
         }
     }
 }
@@ -57,8 +67,8 @@ pub struct Frame {
     pub rssi: i8,
     /// Transmitter MAC address.
     pub source_mac: MacAddr6,
-    /// "The two byte sequence number of the Wi-Fi frame that triggered
-    /// the collection of the CSI contained in this packet."
+    /// The two byte sequence number of the Wi-Fi frame that triggered
+    /// the collection of the CSI contained in this packet.
     pub seq_cnt: u16,
     /// Core number.
     pub core: u8,
@@ -66,22 +76,27 @@ pub struct Frame {
     pub spatial: u8,
     /// See the documentation for [`ChanSpec`].
     pub chan_spec: ChanSpec,
-    /// Chip ID.
+    /// Chip that generated the CSI frame.
     pub chip: Chip,
     /// Complex CSI values.
-    pub csi_values: Vec<Complex<f64>>,
+    pub csi: Vec<Complex<f64>>,
 }
 
+/// Error returned when parsing a CSI frame.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum Error {
+    /// The given byte slice is too short.
     #[error("not enough bytes")]
     NotEnoughBytes,
+    /// A Nexmon packet should have the magic bytes `NEXMON` at offset 6.
     #[error("not a Nexmon packet")]
     NotANexmonPacket,
+    /// A Nexmon packet should have the magic bytes `0x1111` at offset 42.
     #[error("missing magic bytes")]
     MissingMagicBytes,
-    #[error("invalid chip")]
-    InvalidChip(#[from] InvalidChip),
+    /// See [`UnknownChip`].
+    #[error("unknown chip")]
+    UnknownChip(#[from] UnknownChip),
 }
 
 impl Frame {
@@ -117,9 +132,24 @@ impl Frame {
         let chan_spec = ChanSpec(u16::from_le_bytes([b[56], b[57]]));
         let chip = u16::from_le_bytes([b[58], b[59]]).try_into()?;
 
-        let mut csi_values = unpack_csi(chan_spec.bandwidth(), &b[60..]);
-        let n = csi_values.len() / 2;
-        csi_values.rotate_right(n);
+        let csi = &b[60..];
+
+        // nsub = bw * 3.2
+        let nsub = match chan_spec.bandwidth() {
+            Bandwidth::Bw20 => 64,
+            Bandwidth::Bw40 => 128,
+            Bandwidth::Bw80 => 256,
+            Bandwidth::Bw160 => 512,
+        };
+
+        if csi.len() < nsub * 4 {
+            // not enough bytes
+            return Err(Error::NotEnoughBytes);
+        }
+
+        let mut csi = unpack_csi(csi);
+        let n = csi.len() / 2;
+        csi.rotate_right(n);
 
         Ok(Self {
             rssi: b[44] as i8,
@@ -129,7 +159,7 @@ impl Frame {
             spatial,
             chan_spec,
             chip,
-            csi_values,
+            csi,
         })
     }
 }
@@ -192,21 +222,7 @@ pub fn unpack_complex(i: u32) -> Complex<f64> {
 }
 
 /// Unpacks the CSI values from the given buffer.
-///
-/// # Panics
-///
-/// Panics if the buffer is too short (less than `3.2 * <bandwidth in MHz>`).
-pub fn unpack_csi(bw: Bandwidth, b: &[u8]) -> Vec<Complex<f64>> {
-    // nsub = bw * 3.2
-    let nsub = match bw {
-        Bandwidth::Bw20 => 64,
-        Bandwidth::Bw40 => 128,
-        Bandwidth::Bw80 => 256,
-        Bandwidth::Bw160 => 512,
-    };
-
-    assert!(b.len() >= nsub * 4, "not enough data");
-
+pub fn unpack_csi(b: &[u8]) -> Vec<Complex<f64>> {
     b.chunks_exact(4)
         .map(|b| u32::from_le_bytes(b.try_into().unwrap()))
         .map(unpack_complex)
