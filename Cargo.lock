@@ -1019,7 +1019,6 @@ dependencies = [
 name = "csi"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "base64",
  "bitflags 2.4.1",
  "macaddr",

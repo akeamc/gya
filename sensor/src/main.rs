@@ -192,7 +192,7 @@ impl App {
             rx,
             cnt,
             texture: None,
-            waterfall: Waterfall::new(3000, 256 * DIAGRAMS as u32),
+            waterfall: Waterfall::new(6000, 256 * DIAGRAMS as u32),
         }
     }
 }
