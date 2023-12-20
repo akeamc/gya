@@ -97,7 +97,7 @@ pub enum Error {
     /// See [`UnknownChip`].
     #[error(transparent)]
     UnknownChip(#[from] UnknownChip),
-    /// See [`ParseChanSpecError`].
+    /// See [`crate::params::ParseChanSpecError`].
     #[error(transparent)]
     InvalidChanSpec(#[from] crate::params::ParseChanSpecError),
 }
