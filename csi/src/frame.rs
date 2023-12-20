@@ -30,7 +30,7 @@ use crate::params::{Bandwidth, ChanSpec};
 /// Error returned when the chip ID does not correspond to any of
 /// the [`Chip`] variants.
 #[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
-#[error("invalid chip id")]
+#[error("unknown chip")]
 pub struct UnknownChip;
 
 /// Different types of WiFi chips.
@@ -95,8 +95,11 @@ pub enum Error {
     #[error("missing magic bytes")]
     MissingMagicBytes,
     /// See [`UnknownChip`].
-    #[error("unknown chip")]
+    #[error(transparent)]
     UnknownChip(#[from] UnknownChip),
+    /// See [`ParseChanSpecError`].
+    #[error(transparent)]
+    InvalidChanSpec(#[from] crate::params::ParseChanSpecError),
 }
 
 impl Frame {
@@ -129,7 +132,7 @@ impl Frame {
         let core = (config & 0b111) as u8;
         let spatial = ((config >> 3) & 0b111) as u8;
 
-        let chan_spec = ChanSpec(u16::from_le_bytes([b[56], b[57]]));
+        let chan_spec: ChanSpec = u16::from_le_bytes([b[56], b[57]]).try_into()?;
         let chip = u16::from_le_bytes([b[58], b[59]]).try_into()?;
 
         let csi = &b[60..];

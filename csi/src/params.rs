@@ -6,6 +6,7 @@ use base64::{display::Base64Display, engine::general_purpose::STANDARD};
 use macaddr::MacAddr6;
 
 /// Band.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Band {
     /// 2.4 GHz.
     Band2G,
@@ -67,20 +68,70 @@ fn bands(ctl_ch: u8, bw: Bandwidth) -> Option<(u8, u8)> {
 }
 
 /// A chanspec holds the channel number, band, bandwidth and control sideband.
-#[derive(Debug, Clone, Copy)]
-pub struct ChanSpec(pub(crate) u16);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ChanSpec {
+    center: u8,
+    sideband: u8,
+    band: Band,
+    bandwidth: Bandwidth,
+}
 
 impl ChanSpec {
     const CENTER_SHIFT: u8 = 0;
     const SIDEBAND_SHIFT: u8 = 8;
 
-    /// Extract the bandwidth.
-    ///
-    /// # Panics
-    ///
-    /// If the bandwidth is unknown (not a variant of [`Bandwidth`]),
-    /// this function will panic.
+    /// Returns the bandwidth.
     pub const fn bandwidth(&self) -> Bandwidth {
+        self.bandwidth
+    }
+
+    /// Convert to an [`u16`].
+    ///
+    /// ```
+    /// # use csi::params::{ChanSpec, Band, Bandwidth};
+    /// assert_eq!(
+    ///     ChanSpec::new(36, Band::Band5G, Bandwidth::Bw40)
+    ///         .unwrap()
+    ///         .to_int(),
+    ///     0xd826
+    /// );
+    pub fn to_int(self) -> u16 {
+        u16::from(self)
+    }
+
+    /// Construct a new chanspec.
+    ///
+    /// If the parameters are invalid, this function will return `None`.
+    pub fn new(channel: u8, band: Band, bandwidth: Bandwidth) -> Option<Self> {
+        let (center, sideband) = bands(channel, bandwidth)?;
+
+        Some(Self {
+            center,
+            sideband,
+            band,
+            bandwidth,
+        })
+    }
+}
+
+/// Error returned when parsing a [`ChanSpec`].
+#[derive(Debug, Clone, Copy, thiserror::Error, PartialEq, Eq)]
+pub enum ParseChanSpecError {
+    /// Bandwidth is not one of the supported values (none of the
+    /// [`Bandwidth`] variants) or when the bandwidth is unsupported
+    /// by the specified [`Band`].
+    #[error("invalid bandwidth")]
+    InvalidBandwidth,
+    /// Band is not one of the supported values (none of the [`Band`]
+    /// variants).
+    #[error("invalid band")]
+    InvalidBand,
+}
+
+impl TryFrom<u16> for ChanSpec {
+    type Error = ParseChanSpecError;
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
         // #define WL_CHANSPEC_BW_MASK             0x3800
         // #define WL_CHANSPEC_BW_SHIFT            11
         // #define WL_CHANSPEC_BW_5                0x0000
@@ -90,46 +141,56 @@ impl ChanSpec {
         // #define WL_CHANSPEC_BW_80               0x2000
         // #define WL_CHANSPEC_BW_160              0x2800
         // #define WL_CHANSPEC_BW_8080             0x3000
-        match self.0 & 0x3800 {
+        let bandwidth = match value & 0x3800 {
             0x1000 => Bandwidth::Bw20,
             0x1800 => Bandwidth::Bw40,
             0x2000 => Bandwidth::Bw80,
             0x2800 => Bandwidth::Bw160,
-            _ => panic!("unknown bandwidth"),
-        }
+            _ => return Err(ParseChanSpecError::InvalidBandwidth),
+        };
+
+        let band = match value & 0xc000 {
+            0x0000 => {
+                if bandwidth != Bandwidth::Bw20 && bandwidth != Bandwidth::Bw40 {
+                    // 2.4 GHz only supports 20 and 40 MHz bandwidth
+                    return Err(ParseChanSpecError::InvalidBandwidth);
+                }
+                Band::Band2G
+            }
+            0xc000 => Band::Band5G,
+            _ => return Err(ParseChanSpecError::InvalidBand),
+        };
+
+        let center = ((value >> Self::CENTER_SHIFT) & 0xff) as u8;
+        let sideband = ((value >> Self::SIDEBAND_SHIFT) & 0x3) as u8;
+
+        Ok(Self {
+            center,
+            sideband,
+            band,
+            bandwidth,
+        })
     }
+}
 
-    /// Center channel.
-    pub const fn center(&self) -> u8 {
-        ((self.0 >> Self::CENTER_SHIFT) & 0xff) as u8
-    }
-
-    /// Construct a new chanspec.
-    ///
-    /// If the parameters are invalid, this function will return `None`.
-    pub fn new(channel: u8, band: Band, bandwidth: Bandwidth) -> Option<Self> {
-        let (center, sideband) = bands(channel, bandwidth)?;
-
+impl From<ChanSpec> for u16 {
+    fn from(value: ChanSpec) -> Self {
         let mut out = 0;
 
-        out |= (center as u16) << Self::CENTER_SHIFT;
-        out |= match band {
+        out |= (value.center as u16) << ChanSpec::CENTER_SHIFT;
+        out |= match value.band {
             Band::Band2G => 0,
             Band::Band5G => 0xc000,
         };
-        out |= (sideband as u16) << Self::SIDEBAND_SHIFT;
-        out |= match bandwidth {
+        out |= (value.sideband as u16) << ChanSpec::SIDEBAND_SHIFT;
+        out |= match value.bandwidth {
             Bandwidth::Bw20 => 0x1000,
             Bandwidth::Bw40 => 0x1800,
             Bandwidth::Bw80 => 0x2000,
             Bandwidth::Bw160 => 0x2800,
         };
 
-        Some(Self(out))
-    }
-
-    const fn to_inner(self) -> u16 {
-        self.0
+        out
     }
 }
 
@@ -251,7 +312,7 @@ impl Params {
     pub fn to_bytes(&self) -> [u8; 34] {
         let mut out = [0u8; 34];
 
-        out[0..2].copy_from_slice(&self.chan_spec.to_inner().to_le_bytes());
+        out[0..2].copy_from_slice(&self.chan_spec.to_int().to_le_bytes());
 
         if self.csi_collect {
             out[2] = 1;
@@ -278,20 +339,5 @@ impl Params {
 impl Display for Params {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Base64Display::new(&self.to_bytes(), &STANDARD).fmt(f)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{Band, Bandwidth, ChanSpec};
-
-    #[test]
-    fn chan_spec() {
-        assert_eq!(
-            ChanSpec::new(36, Band::Band5G, Bandwidth::Bw40)
-                .unwrap()
-                .to_inner(),
-            0xd826
-        );
     }
 }
