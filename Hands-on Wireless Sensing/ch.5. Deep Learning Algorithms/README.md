@@ -1,0 +1,2 @@
+The code in this project is for reference only.
+If you are interested in Deep Learning-assisted Wi-Fi Sensing, please visit our [Widar3 dataset](http://tns.thss.tsinghua.edu.cn/widar3.0/) for more code and data.
