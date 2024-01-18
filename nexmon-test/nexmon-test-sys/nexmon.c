@@ -61,7 +61,7 @@ void unpack_float_acphy(int nbits, int autoscale, int shft,
 	shft = nbits - maxbit;
 	for (i = 0; i < n_out; i++)
 	{
-		e = He[(i >> e_shift)] + shft; // FIXME
+		e = He[(i >> e_shift)] + shft;
 		vi = *pOut;
 		sgn = 1;
 		if (vi & k_tof_unpack_sgn_mask)

@@ -10,8 +10,9 @@ anyhow = "1.0.75"
 async-ssh2-tokio = { version = "0.8.4", features = ["openssl"] }
 async-stream = "0.3.5"
 atomic-counter = "1.0.1"
+clap = { version = "4.4.12", features = ["derive"] }
 colorgrad = "0.6.2"
-csi = { path = "../csi" }
+csi.workspace = true
 eframe = "0.24.1"
 egui = "0.24.1"
 egui_plot = "0.24.1"
@@ -19,8 +20,11 @@ futures = "0.3.29"
 image = "0.24.7"
 macaddr = "1.0.1"
 num-complex = "0.4.4"
+num-traits = "0.2.17"
 pcap-file-tokio = "0.1.0"
-russh = "0.40.0"
+plotters = "0.3.5"
+rt-ac86u = { path = "../rt-ac86u" }
+russh = "0.40"
 tokio = { version = "1.35.0", features = ["full"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }

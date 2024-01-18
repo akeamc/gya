@@ -1,8 +1,10 @@
 [workspace]
 resolver = "2"
-members = ["csi", "sensor", "nexmon-test", "nexmon-test/nexmon-test-sys"]
+members = ["csi", "sensor", "nexmon-test", "nexmon-test/nexmon-test-sys", "rt-ac86u", "makecsiparams-sys"]
+
+[workspace.dependencies]
+csi = { path = "csi" }
 
 [patch.crates-io]
-async-ssh2-tokio = { git = "https://github.com/akeamc/async-ssh2-tokio" }
 russh = { git = "https://github.com/akeamc/russh" }
 russh-keys = { git = "https://github.com/akeamc/russh" }

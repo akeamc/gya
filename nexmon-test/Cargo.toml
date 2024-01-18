@@ -7,5 +7,6 @@ edition = "2021"
 csi = { path = "../csi" }
 
 [dependencies]
+makecsiparams-sys = { path = "../makecsiparams-sys" }
 nexmon-test-sys = { path = "nexmon-test-sys" }
 num-complex = "0.4.4"

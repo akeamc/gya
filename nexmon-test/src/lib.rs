@@ -1,3 +1,5 @@
+use std::ffi::{CStr, CString};
+
 use nexmon_test_sys::{unpack_float_acphy, wiros_parse_csi};
 use num_complex::Complex;
 
@@ -20,7 +22,6 @@ pub fn acphy(input: &[u8]) -> Vec<Complex<f64>> {
     h_out
         .chunks_exact(2)
         .map(|v| {
-            println!("{:?}", v);
             Complex::new(v[0] as _, v[1] as _)
         })
         .collect::<Vec<_>>()
@@ -45,8 +46,26 @@ pub fn wiros(input: &[u8]) -> Vec<Complex<f64>> {
         .collect::<Vec<_>>()
 }
 
+pub fn chanspec_aton(a: &str) -> u16 {
+    let input = CString::new(a).unwrap();
+    unsafe {
+        makecsiparams_sys::wf_chspec_aton(input.as_ptr())
+    }
+}
+
+pub fn chanspec_ntoa(chspec: u16) -> String {
+    let mut buf = [0; makecsiparams_sys::CHANSPEC_STR_LEN as usize];
+    unsafe {
+        makecsiparams_sys::wf_chspec_ntoa(chspec, buf.as_mut_ptr());
+    }
+    let cstr = unsafe { CStr::from_ptr(buf.as_ptr()) };
+    cstr.to_string_lossy().into_owned()
+}
+
 #[cfg(test)]
 mod tests {
+    use csi::{params::ChanSpec, ieee80211::{Band, Bandwidth}};
+
     use super::*;
 
     #[test]
@@ -106,13 +125,25 @@ mod tests {
             186, 217, 48, 182, 178, 1, 40, 176, 127, 254, 63, 178, 127, 131, 45, 242, 231, 251, 12,
             49, 0, 251, 24, 241, 63, 252, 28,
         ];
-        const NFFT: usize = 64;
+        const N_SUBCARRIERS: usize = 64;
 
-        let input = &SAMPLE[..NFFT * 4];
+        let input = &SAMPLE[..N_SUBCARRIERS * 4];
 
         let a = acphy(input);
-        let b = csi::frame::unpack_csi(input);
+        let b = csi::frame::unpack_csi(input).collect::<Vec<_>>();
 
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_chanspec() {
+        dbg!(chanspec_aton("10/80"), ChanSpec::new(10, Band::Band5G, Bandwidth::Bw80));
+
+        let a = chanspec_aton("100/80");
+        let b = ChanSpec::new(100, Band::Band5G, Bandwidth::Bw80).unwrap();
+
+        assert_eq!(a, b.as_u16());
+
+        dbg!(chanspec_aton("10/20"));
     }
 }

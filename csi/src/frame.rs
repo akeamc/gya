@@ -22,10 +22,11 @@
 //! [GitHub source](https://github.com/seemoo-lab/nexmon_csi/blob/fdb25ef0e4e1402e968bb644d4914ad1a3d0a84d/src/csi_extractor.c#L135-L146)
 
 use macaddr::MacAddr6;
+use ndarray::Array1;
 use num_complex::Complex;
 use num_traits::Zero;
 
-use crate::params::{Bandwidth, ChanSpec};
+use crate::{params::ChanSpec, ieee80211::Bandwidth};
 
 /// Error returned when the chip ID does not correspond to any of
 /// the [`Chip`] variants.
@@ -79,7 +80,7 @@ pub struct Frame {
     /// Chip that generated the CSI frame.
     pub chip: Chip,
     /// Complex CSI values.
-    pub csi: Vec<Complex<f64>>,
+    pub csi: Array1<Complex<f64>>,
 }
 
 /// Error returned when parsing a CSI frame.
@@ -150,7 +151,7 @@ impl Frame {
             return Err(Error::NotEnoughBytes);
         }
 
-        let mut csi = unpack_csi(csi);
+        let mut csi = unpack_csi(csi).collect::<Vec<_>>();
         let n = csi.len() / 2;
         csi.rotate_right(n);
 
@@ -162,7 +163,7 @@ impl Frame {
             spatial,
             chan_spec,
             chip,
-            csi,
+            csi: csi.into(),
         })
     }
 }
@@ -225,11 +226,10 @@ pub fn unpack_complex(i: u32) -> Complex<f64> {
 }
 
 /// Unpacks the CSI values from the given buffer.
-pub fn unpack_csi(b: &[u8]) -> Vec<Complex<f64>> {
+pub fn unpack_csi(b: &[u8]) -> impl Iterator<Item = Complex<f64>> + '_ {
     b.chunks_exact(4)
         .map(|b| u32::from_le_bytes(b.try_into().unwrap()))
         .map(unpack_complex)
-        .collect::<Vec<_>>()
 }
 
 #[cfg(test)]

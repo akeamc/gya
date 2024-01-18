@@ -5,39 +5,7 @@ use std::fmt::Display;
 use base64::{display::Base64Display, engine::general_purpose::STANDARD};
 use macaddr::MacAddr6;
 
-/// Band.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Band {
-    /// 2.4 GHz.
-    Band2G,
-    /// 5 GHz.
-    Band5G,
-}
-
-/// Bandwidth.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Bandwidth {
-    /// 20 MHz.
-    Bw20,
-    /// 40 MHz.
-    Bw40,
-    /// 80 MHz.
-    Bw80,
-    /// 160 MHz.
-    Bw160,
-}
-
-impl Bandwidth {
-    /// Returns the bandwidth in MHz.
-    pub const fn mhz(&self) -> u8 {
-        match self {
-            Bandwidth::Bw20 => 20,
-            Bandwidth::Bw40 => 40,
-            Bandwidth::Bw80 => 80,
-            Bandwidth::Bw160 => 160,
-        }
-    }
-}
+use crate::ieee80211::{Bandwidth, Band};
 
 fn bands(ctl_ch: u8, bw: Bandwidth) -> Option<(u8, u8)> {
     let channels: &[u8] = match bw {
@@ -50,7 +18,7 @@ fn bands(ctl_ch: u8, bw: Bandwidth) -> Option<(u8, u8)> {
     for center in channels {
         let lowest = center - (bw.mhz() - 20) / 10;
 
-        if (ctl_ch - lowest) % 4 != 0 {
+        if (ctl_ch.checked_sub(lowest).map(|n| n % 4 != 0)).unwrap_or(true) {
             continue; // center channel must be a multiple of 4
         }
 
@@ -70,6 +38,7 @@ fn bands(ctl_ch: u8, bw: Bandwidth) -> Option<(u8, u8)> {
 /// A chanspec holds the channel number, band, bandwidth and control sideband.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChanSpec {
+    original: Option<u8>,
     center: u8,
     sideband: u8,
     band: Band,
@@ -80,6 +49,20 @@ impl ChanSpec {
     const CENTER_SHIFT: u8 = 0;
     const SIDEBAND_SHIFT: u8 = 8;
 
+    pub const fn original(&self) -> Option<u8> {
+        self.original
+    }
+
+    /// Returns the center channel.
+    pub const fn center(&self) -> u8 {
+        self.center
+    }
+
+    /// Returns the sideband.
+    pub const fn sideband(&self) -> u8 {
+        self.sideband
+    }
+
     /// Returns the bandwidth.
     pub const fn bandwidth(&self) -> Bandwidth {
         self.bandwidth
@@ -88,14 +71,15 @@ impl ChanSpec {
     /// Convert to an [`u16`].
     ///
     /// ```
-    /// # use csi::params::{ChanSpec, Band, Bandwidth};
+    /// # use csi::params::ChanSpec;
+    /// # use csi::ieee80211::{Band, Bandwidth};
     /// assert_eq!(
     ///     ChanSpec::new(36, Band::Band5G, Bandwidth::Bw40)
     ///         .unwrap()
-    ///         .to_int(),
+    ///         .as_u16(),
     ///     0xd826
     /// );
-    pub fn to_int(self) -> u16 {
+    pub fn as_u16(self) -> u16 {
         u16::from(self)
     }
 
@@ -106,6 +90,7 @@ impl ChanSpec {
         let (center, sideband) = bands(channel, bandwidth)?;
 
         Some(Self {
+            original: Some(channel),
             center,
             sideband,
             band,
@@ -165,6 +150,7 @@ impl TryFrom<u16> for ChanSpec {
         let sideband = ((value >> Self::SIDEBAND_SHIFT) & 0x3) as u8;
 
         Ok(Self {
+            original: None,
             center,
             sideband,
             band,
@@ -245,7 +231,8 @@ pub const fn default_delay_us(cores: Cores, spatial_streams: SpatialStreams) -> 
 /// [nexutil](https://github.com/seemoo-lab/nexmon/blob/ae8addba003ceb68a4217c014242d5c747eeaf36/utilities/nexutil/README.md).
 ///
 /// ```
-/// # use csi::params::{Cores, SpatialStreams, Params, ChanSpec, Band, Bandwidth};
+/// # use csi::params::{Cores, SpatialStreams, Params, ChanSpec};
+/// # use csi::ieee80211::{Bandwidth, Band};
 /// let params = Params {
 ///     chan_spec: ChanSpec::new(36, Band::Band5G, Bandwidth::Bw40).unwrap(),
 ///     csi_collect: true,
@@ -312,7 +299,7 @@ impl Params {
     pub fn to_bytes(&self) -> [u8; 34] {
         let mut out = [0u8; 34];
 
-        out[0..2].copy_from_slice(&self.chan_spec.to_int().to_le_bytes());
+        out[0..2].copy_from_slice(&self.chan_spec.as_u16().to_le_bytes());
 
         if self.csi_collect {
             out[2] = 1;

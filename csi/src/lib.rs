@@ -5,4 +5,6 @@
 #![warn(missing_docs)]
 
 pub mod frame;
+pub mod ieee80211;
 pub mod params;
+pub mod proc;

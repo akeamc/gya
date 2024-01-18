@@ -7,3 +7,6 @@
 [submodule "nexmon"]
 	path = nexmon
 	url = https://github.com/seemoo-lab/nexmon
+[submodule "nexmon_csi_gui"]
+	path = nexmon_csi_gui
+	url = https://github.com/ConnectedSystemsLab/nexmon_csi_gui.git

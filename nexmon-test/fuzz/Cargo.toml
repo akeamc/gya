@@ -1,0 +1,28 @@
+[package]
+name = "nexmon-test-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+csi = { path = "../../csi", features = ["arbitrary"] }
+libfuzzer-sys = "0.4"
+
+[dependencies.nexmon-test]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "chanspec"
+path = "fuzz_targets/chanspec.rs"
+test = false
+doc = false
