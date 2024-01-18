@@ -138,15 +138,7 @@ impl Frame {
 
         let csi = &b[60..];
 
-        // nsub = bw * 3.2
-        let nsub = match chan_spec.bandwidth() {
-            Bandwidth::Bw20 => 64,
-            Bandwidth::Bw40 => 128,
-            Bandwidth::Bw80 => 256,
-            Bandwidth::Bw160 => 512,
-        };
-
-        if csi.len() < nsub * 4 {
+        if csi.len() < chan_spec.bandwidth().nsub() * 4 {
             // not enough bytes
             return Err(Error::NotEnoughBytes);
         }

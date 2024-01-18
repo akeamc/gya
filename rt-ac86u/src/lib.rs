@@ -44,7 +44,7 @@ impl RtAc86u {
         self.exec("/usr/sbin/wl -i eth6 country UG").await?;
         self.exec(format!(
             "/usr/sbin/wl -i eth6 chanspec {}/{}",
-            params.chan_spec.original().unwrap(),
+            params.chan_spec.channel(),
             params.chan_spec.bandwidth().mhz(),
         ))
         .await?;

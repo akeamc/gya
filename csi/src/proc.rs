@@ -95,6 +95,7 @@ impl FrameGrouper {
     }
 }
 
+/// Calculate the angle of arrival (AoA) of a Wi-Fi frame. In radians, of course.
 pub fn aoa(csi: &WifiCsi) -> Option<f64> {
     // let m = ndarray::arr2(&[
     //     csi.frames[0][0].clone()?,

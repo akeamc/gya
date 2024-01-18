@@ -2,6 +2,12 @@
 //!
 //! References:
 //! - [802.11ac: A Survival Guide](https://www.oreilly.com/library/view/80211ac-a-survival/9781449357702/ch02.html)
+//! - [List of WLAN channels (Wikipedia)](https://en.wikipedia.org/wiki/List_of_WLAN_channels#5_GHz_(802.11a/h/n/ac/ax))
+
+use ndarray::Array1;
+
+/// Speed of light in meters per second.
+const C: f64 = 299_792_458.;
 
 /// Band.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -35,6 +41,18 @@ impl Bandwidth {
             Bandwidth::Bw40 => 40,
             Bandwidth::Bw80 => 80,
             Bandwidth::Bw160 => 160,
+        }
+    }
+
+    /// Returns the number of subcarriers.
+    ///
+    /// Note that this is not the same as the number of usable subcarriers.
+    pub const fn nsub(&self) -> usize {
+        match self {
+            Bandwidth::Bw20 => 64,
+            Bandwidth::Bw40 => 128,
+            Bandwidth::Bw80 => 256,
+            Bandwidth::Bw160 => 512,
         }
     }
 }
@@ -112,5 +130,45 @@ pub const fn subcarrier_type_160mhz(i: i16) -> SubcarrierType {
         | 203 | 231 => SubcarrierType::Pilot,
         -250..=-130 | -126..=-6 | 6..=126 | 130..=250 => SubcarrierType::Data,
         _ => SubcarrierType::Zero,
+    }
+}
+
+fn channel_mhz(channel: u8) -> u32 {
+    5000 + 5 * channel as u32
+}
+
+/// Returns the subcarrier frequencies (in Hz) for a given center frequency and bandwidth.
+///
+/// Not all returned subcarriers are usable.
+///
+/// ```
+/// # use csi::ieee80211::{subcarrier_freqs, Bandwidth};
+/// let freqs = subcarrier_freqs(58, Bandwidth::Bw80);
+/// assert_eq!(freqs.len(), 256);
+/// assert_eq!(freqs[0], 5.250e9);
+/// assert_eq!(freqs[255], 5.330e9);
+/// ```
+pub fn subcarrier_freqs(center: u8, bandwidth: Bandwidth) -> Array1<f64> {
+    let center = channel_mhz(center) as f64 * 1e6;
+    let half_bw = bandwidth.mhz() as f64 * 1e6 / 2.;
+
+    Array1::linspace(center - half_bw, center + half_bw, bandwidth.nsub())
+}
+
+/// Returns the subcarrier wavelengths (in meters) for a given center frequency and bandwidth.
+pub fn subcarrier_lambda(center: u8, bandwidth: Bandwidth) -> Array1<f64> {
+    let mut v = subcarrier_freqs(center, bandwidth);
+    v.mapv_inplace(|f| C / f);
+    v
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ieee80211::channel_mhz;
+
+    #[test]
+    fn channel_freq() {
+        assert_eq!(channel_mhz(32), 5160);
+        assert_eq!(channel_mhz(120), 5600);
     }
 }

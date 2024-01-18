@@ -38,7 +38,6 @@ fn bands(ctl_ch: u8, bw: Bandwidth) -> Option<(u8, u8)> {
 /// A chanspec holds the channel number, band, bandwidth and control sideband.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChanSpec {
-    original: Option<u8>,
     center: u8,
     sideband: u8,
     band: Band,
@@ -49,8 +48,8 @@ impl ChanSpec {
     const CENTER_SHIFT: u8 = 0;
     const SIDEBAND_SHIFT: u8 = 8;
 
-    pub const fn original(&self) -> Option<u8> {
-        self.original
+    pub const fn channel(&self) -> u8 {
+        todo!()
     }
 
     /// Returns the center channel.
@@ -90,7 +89,6 @@ impl ChanSpec {
         let (center, sideband) = bands(channel, bandwidth)?;
 
         Some(Self {
-            original: Some(channel),
             center,
             sideband,
             band,
@@ -150,7 +148,6 @@ impl TryFrom<u16> for ChanSpec {
         let sideband = ((value >> Self::SIDEBAND_SHIFT) & 0x3) as u8;
 
         Ok(Self {
-            original: None,
             center,
             sideband,
             band,
