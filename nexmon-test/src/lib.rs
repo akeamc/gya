@@ -21,9 +21,7 @@ pub fn acphy(input: &[u8]) -> Vec<Complex<f64>> {
     }
     h_out
         .chunks_exact(2)
-        .map(|v| {
-            Complex::new(v[0] as _, v[1] as _)
-        })
+        .map(|v| Complex::new(v[0] as _, v[1] as _))
         .collect::<Vec<_>>()
 }
 
@@ -48,9 +46,7 @@ pub fn wiros(input: &[u8]) -> Vec<Complex<f64>> {
 
 pub fn chanspec_aton(a: &str) -> u16 {
     let input = CString::new(a).unwrap();
-    unsafe {
-        makecsiparams_sys::wf_chspec_aton(input.as_ptr())
-    }
+    unsafe { makecsiparams_sys::wf_chspec_aton(input.as_ptr()) }
 }
 
 pub fn chanspec_ntoa(chspec: u16) -> String {
@@ -64,7 +60,10 @@ pub fn chanspec_ntoa(chspec: u16) -> String {
 
 #[cfg(test)]
 mod tests {
-    use csi::{params::ChanSpec, ieee80211::{Band, Bandwidth}};
+    use csi::{
+        ieee80211::{Band, Bandwidth},
+        params::ChanSpec,
+    };
 
     use super::*;
 
@@ -137,7 +136,10 @@ mod tests {
 
     #[test]
     fn test_chanspec() {
-        dbg!(chanspec_aton("10/80"), ChanSpec::new(10, Band::Band5G, Bandwidth::Bw80));
+        dbg!(
+            chanspec_aton("10/80"),
+            ChanSpec::new(10, Band::Band5G, Bandwidth::Bw80)
+        );
 
         let a = chanspec_aton("100/80");
         let b = ChanSpec::new(100, Band::Band5G, Bandwidth::Bw80).unwrap();

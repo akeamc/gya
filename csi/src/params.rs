@@ -5,7 +5,7 @@ use std::fmt::Display;
 use base64::{display::Base64Display, engine::general_purpose::STANDARD};
 use macaddr::MacAddr6;
 
-use crate::ieee80211::{Bandwidth, Band};
+use crate::ieee80211::{Band, Bandwidth};
 
 fn bands(ctl_ch: u8, bw: Bandwidth) -> Option<(u8, u8)> {
     let channels: &[u8] = match bw {

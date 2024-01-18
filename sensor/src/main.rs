@@ -4,7 +4,7 @@ use async_ssh2_tokio::client::{AuthMethod, Client, ServerCheckMethod};
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use clap::{Args, Parser, Subcommand};
 use csi::{
-    ieee80211::{Band, Bandwidth, subcarrier_type_80mhz, SubcarrierType},
+    ieee80211::{subcarrier_type_80mhz, Band, Bandwidth, SubcarrierType},
     params::{ChanSpec, Cores, Params, SpatialStreams},
     proc::{aoa, WifiCsi},
 };

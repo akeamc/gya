@@ -26,7 +26,7 @@ use ndarray::Array1;
 use num_complex::Complex;
 use num_traits::Zero;
 
-use crate::{params::ChanSpec, ieee80211::Bandwidth};
+use crate::{ieee80211::Bandwidth, params::ChanSpec};
 
 /// Error returned when the chip ID does not correspond to any of
 /// the [`Chip`] variants.

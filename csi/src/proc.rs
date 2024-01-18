@@ -102,7 +102,12 @@ pub fn aoa(csi: &WifiCsi) -> Option<f64> {
     //     csi.frames[2][0].clone()?,
     // ]);
 
-    let m = ndarray::stack![ndarray::Axis(0), csi.frames[0][0].clone()?, csi.frames[1][0].clone()?, csi.frames[2][0].clone()?];
+    let m = ndarray::stack![
+        ndarray::Axis(0),
+        csi.frames[0][0].clone()?,
+        csi.frames[1][0].clone()?,
+        csi.frames[2][0].clone()?
+    ];
 
     let angles = m.map(|z| z.arg());
 

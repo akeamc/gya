@@ -7,9 +7,7 @@ use csi::{
 };
 use futures::Stream;
 
-pub fn wifi_csi(
-    reader: impl tokio::io::AsyncRead,
-) -> impl Stream<Item = anyhow::Result<WifiCsi>> {
+pub fn wifi_csi(reader: impl tokio::io::AsyncRead) -> impl Stream<Item = anyhow::Result<WifiCsi>> {
     try_stream! {
       let reader = pin!(reader);
         let mut frames = pcap_file_tokio::pcap::PcapReader::new(reader).await?;

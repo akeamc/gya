@@ -18,7 +18,7 @@ fn main() {
         .expect("Couldn't write bindings!");
 
     cc::Build::new()
-    .include("vendor")
+        .include("vendor")
         .file("vendor/makecsiparams.c")
         .file("vendor/bcmwifi_channels.c")
         .compile("makecsiparams-sys-cc");
