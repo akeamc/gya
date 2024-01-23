@@ -7,11 +7,11 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.79"
-async-ssh2-tokio = { version = "0.8.4", features = ["openssl"] }
+async-ssh2-tokio = { version = "0.8.5", features = ["openssl"] }
 async-stream = "0.3.5"
 csi.workspace = true
 futures-core = "0.3.30"
 pcap-file-tokio = "0.1.0"
-russh = "*"
+russh = "0.41.0-beta.2"
 tokio = "1.35.1"
 tracing = "0.1.40"

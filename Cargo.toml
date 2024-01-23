@@ -6,5 +6,7 @@ members = ["csi", "sensor", "nexmon-test", "nexmon-test/nexmon-test-sys", "rt-ac
 csi = { path = "csi" }
 
 [patch.crates-io]
-russh = { git = "https://github.com/akeamc/russh" }
-russh-keys = { git = "https://github.com/akeamc/russh" }
+async-ssh2-tokio = { git = "https://github.com/akeamc/async-ssh2-tokio" }
+russh = { git = "https://github.com/warp-tech/russh" }
+russh-cryptovec = { git = "https://github.com/warp-tech/russh" }
+russh-keys = { git = "https://github.com/warp-tech/russh" }
