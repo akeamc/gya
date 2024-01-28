@@ -44,15 +44,22 @@ impl Bandwidth {
         }
     }
 
-    /// Returns the number of subcarriers.
+    /// Returns the number of subcarriers rounded up to the nearest power of 2.
     ///
-    /// Note that this is not the same as the number of usable subcarriers.
-    pub const fn nsub(&self) -> usize {
+    /// Note that this is not the same as the number of _usable_ subcarriers.
+    ///
+    /// | PHY standard             | Subcarrier range                                   | Pilot subcarriers                           | Subcarriers (total/data)          |
+    /// |--------------------------|----------------------------------------------------|---------------------------------------------|-----------------------------------|
+    /// | 802.11n/802.11ac, 20 MHz | –28 to –1, +1 to +28                               | ±7, ±21                                     | 56 total, 52 usable (7% pilots)   |
+    /// | 802.11n/802.11ac, 40 MHz | –58 to –2, +2 to +58                               | ±11, ±25, ±53                               | 114 total, 108 usable (5% pilots) |
+    /// | 802.11ac, 80 MHz         | –122 to –2, +2 to +122                             | ±11, ±39, ±75, ±103                         | 242 total, 234 usable (3% pilots) |
+    /// | 802.11ac, 160 MHz        | –250 to –130, –126 to –6, +6 to +126, +130 to +250 | ±25, ±53, ±89, ±117, ±139, ±167, ±203, ±231 | 484 total, 468 usable (3% pilots) |
+    pub const fn nsub_pow2(&self) -> usize {
         match self {
-            Bandwidth::Bw20 => 64,
-            Bandwidth::Bw40 => 128,
-            Bandwidth::Bw80 => 256,
-            Bandwidth::Bw160 => 512,
+            Bandwidth::Bw20 => 64,   // 56 total
+            Bandwidth::Bw40 => 128,  // 108 total
+            Bandwidth::Bw80 => 256,  // 242 total
+            Bandwidth::Bw160 => 512, // 484 total
         }
     }
 }
@@ -152,7 +159,7 @@ pub fn subcarrier_freqs(center: u8, bandwidth: Bandwidth) -> Array1<f64> {
     let center = channel_mhz(center) as f64 * 1e6;
     let half_bw = bandwidth.mhz() as f64 * 1e6 / 2.;
 
-    Array1::linspace(center - half_bw, center + half_bw, bandwidth.nsub())
+    Array1::linspace(center - half_bw, center + half_bw, bandwidth.nsub_pow2())
 }
 
 /// Returns the subcarrier wavelengths (in meters) for a given center frequency and bandwidth.

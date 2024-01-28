@@ -26,7 +26,7 @@ use ndarray::Array1;
 use num_complex::Complex;
 use num_traits::Zero;
 
-use crate::{ieee80211::Bandwidth, params::ChanSpec};
+use crate::params::ChanSpec;
 
 /// Error returned when the chip ID does not correspond to any of
 /// the [`Chip`] variants.
@@ -138,7 +138,7 @@ impl Frame {
 
         let csi = &b[60..];
 
-        if csi.len() < chan_spec.bandwidth().nsub() * 4 {
+        if csi.len() < chan_spec.bandwidth().nsub_pow2() * 4 {
             // not enough bytes
             return Err(Error::NotEnoughBytes);
         }
