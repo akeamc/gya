@@ -32,19 +32,17 @@ impl RtAc86u {
 
     pub async fn configure(&self, params: csi::params::Params, rmmod: bool) -> anyhow::Result<()> {
         if rmmod {
-            self.exec("/sbin/rmmod dhd; /sbin/insmod /jffs/dhd.ko")
-                .await?;
+            self.exec("/sbin/rmmod dhd.ko").await?;
+            self.exec("/sbin/insmod /jffs/dhd.ko").await?;
         }
-
-        dbg!(params.chan_spec);
 
         self.exec("/usr/sbin/wl -i eth6 down").await?;
         self.exec("/usr/sbin/wl -i eth6 up").await?;
         self.exec("/usr/sbin/wl -i eth6 radio on").await?;
-        self.exec("/usr/sbin/wl -i eth6 country UG").await?;
+        self.exec("/usr/sbin/wl -i eth6 country US").await?;
         self.exec(format!(
             "/usr/sbin/wl -i eth6 chanspec {}/{}",
-            params.chan_spec.channel(),
+            params.chan_spec.channel_lo_20mhz(),
             params.chan_spec.bandwidth().mhz(),
         ))
         .await?;

@@ -305,8 +305,8 @@ fn main() -> anyhow::Result<()> {
             .build()?
             .block_on(async {
                 let file = tokio::fs::File::open(input).await.unwrap();
-                let frames = pin!(wifi_csi(file));
-                let mut frames = frames.skip(11000);
+                let mut frames = pin!(wifi_csi(file));
+                // let mut frames = frames.skip(100);
 
                 let frame = frames.try_next().await.unwrap().unwrap();
 

@@ -48,8 +48,9 @@ impl ChanSpec {
     const CENTER_SHIFT: u8 = 0;
     const SIDEBAND_SHIFT: u8 = 8;
 
-    pub const fn channel(&self) -> u8 {
-        todo!()
+    /// Returns the lowest channel in the 20 MHz band.
+    pub const fn channel_lo_20mhz(&self) -> u8 {
+        self.center - (self.bandwidth.mhz() - 20) / 10
     }
 
     /// Returns the center channel.
@@ -323,5 +324,27 @@ impl Params {
 impl Display for Params {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Base64Display::new(&self.to_bytes(), &STANDARD).fmt(f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ieee80211::{Band, Bandwidth};
+
+    use super::ChanSpec;
+
+    #[test]
+    fn chanspec_channel_lo() {
+        let cs = ChanSpec::new(100, Band::Band5G, Bandwidth::Bw80).unwrap();
+        assert_eq!(cs.center(), 106);
+        assert_eq!(cs.channel_lo_20mhz(), 100);
+
+        let cs = ChanSpec::new(120, Band::Band5G, Bandwidth::Bw160).unwrap();
+        assert_eq!(cs.center(), 114);
+        assert_eq!(cs.channel_lo_20mhz(), 100);
+
+        let cs = ChanSpec::new(136, Band::Band5G, Bandwidth::Bw40).unwrap();
+        assert_eq!(cs.center(), 134);
+        assert_eq!(cs.channel_lo_20mhz(), 132);
     }
 }
