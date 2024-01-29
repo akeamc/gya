@@ -1,6 +1,6 @@
 //! CSI processing.
 
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use num_complex::Complex;
 
 use crate::{frame::Frame, params::ChanSpec};
@@ -22,6 +22,10 @@ pub struct WifiCsi {
 impl WifiCsi {
     pub fn frames(&self) -> &[[Option<Array1<Complex<f64>>>; 4]; 4] {
         &self.frames
+    }
+
+    pub fn get(&self, core: usize, spatial: usize) -> Option<&Array1<Complex<f64>>> {
+        self.frames[core][spatial].as_ref()
     }
 }
 
