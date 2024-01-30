@@ -30,7 +30,7 @@ impl RtAc86u {
         Ok(())
     }
 
-    pub async fn configure(&self, params: csi::params::Params, rmmod: bool) -> anyhow::Result<()> {
+    pub async fn configure(&self, params: &csi::params::Params, rmmod: bool) -> anyhow::Result<()> {
         if rmmod {
             self.exec("/sbin/rmmod dhd.ko").await?;
             self.exec("/sbin/insmod /jffs/dhd.ko").await?;
@@ -64,7 +64,7 @@ impl RtAc86u {
         Ok(())
     }
 
-    pub async fn tcpdump(&self) -> Result<impl tokio::io::AsyncRead, async_ssh2_tokio::Error> {
+    pub async fn tcpdump(&self) -> Result<Tcpdump, async_ssh2_tokio::Error> {
         let channel = self.client.get_channel().await?;
         // dump CSI packets to stdout
         channel
@@ -74,3 +74,5 @@ impl RtAc86u {
         Ok(channel.into_stream())
     }
 }
+
+pub type Tcpdump = russh::ChannelStream<russh::client::Msg>;

@@ -119,6 +119,4 @@ pub fn aoa(csi: &WifiCsi) -> Option<f64> {
     println!("{}", angles);
 
     todo!();
-
-    None
 }
