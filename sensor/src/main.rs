@@ -15,6 +15,7 @@ use macaddr::MacAddr6;
 use ndarray::{Array3, Axis};
 use num_complex::{Complex, ComplexFloat};
 use rt_ac86u::RtAc86u;
+use rustfft::Fft;
 use sensor::read::{read_wifi_csi, PcapSource};
 use tokio::sync::mpsc;
 
@@ -22,16 +23,11 @@ const MACBOOK: MacAddr6 = MacAddr6::new(0x50, 0xED, 0x3C, 0x2E, 0x04, 0x00);
 
 type Values = WifiCsi;
 
-struct Data {
-    csi: Array3<Complex<f64>>,
-    rssi: i8,
-}
-
 struct App {
     _rt: tokio::runtime::Runtime,
     rx: mpsc::Receiver<Values>,
     cnt: Arc<RelaxedCounter>,
-    data: Vec<Data>,
+    data: Vec<WifiCsi>,
     last: bool,
     i: usize,
     prev_i: usize,
@@ -83,26 +79,9 @@ impl eframe::App for App {
         }
 
         while let Ok(csi) = self.rx.try_recv() {
-            // put the CSI data in a 2d array
-            let frames = csi
-                .frames()
-                .iter()
-                .flatten()
-                .filter_map(Option::as_ref)
-                .flat_map(|v| v.iter())
-                .map(ToOwned::to_owned)
-                .collect::<Vec<_>>();
-
-            let nsub = csi.chan_spec.bandwidth().nsub_pow2();
-
-            if frames.len() != 16 * nsub {
-                continue;
+            if csi.frames().iter().flatten().all(Option::is_some) {
+                self.data.push(csi);
             }
-
-            self.data.push(Data {
-                csi: Array3::from_shape_vec((4, 4, nsub), frames).unwrap(),
-                rssi: csi.rssi,
-            });
         }
 
         // if let Some(ref csi) = self.csi {
@@ -113,7 +92,9 @@ impl eframe::App for App {
 
         egui::SidePanel::left("controls").show(ctx, |ui| {
             ui.add(egui::Checkbox::new(&mut self.last, "last"));
-            ui.add(egui::Slider::new(&mut self.i, 0..=self.data.len()).text("i"));
+            ui.add(
+                egui::Slider::new(&mut self.i, 0..=(self.data.len().saturating_sub(1))).text("i"),
+            );
             ui.add(egui::Slider::new(&mut self.core, 0..=3).text("core"));
             ui.add(egui::Slider::new(&mut self.spatial, 0..=3).text("spatial"));
             ui.label(format!("{} packets", self.cnt.get()));
@@ -132,8 +113,7 @@ impl eframe::App for App {
 
                 const GRID_SIZE: Vec2 = Vec2 { x: 500., y: 250. };
 
-                let core_n = data.csi.index_axis(Axis(0), self.core);
-                let core_n = core_n.index_axis(Axis(0), self.spatial);
+                let core_n = data.get(self.core, self.spatial).unwrap();
 
                 Plot::new("amplitude")
                     .auto_bounds(egui::Vec2b::FALSE)
@@ -165,13 +145,32 @@ impl eframe::App for App {
                     .include_y(4.)
                     .min_size(GRID_SIZE)
                     .show(ui, |plot_ui| {
-                        let core_0 = data.csi.index_axis(Axis(0), 0);
-                        let core_0 = core_0.index_axis(Axis(0), self.spatial);
+                        let core_0 = data.get(0, self.spatial).unwrap();
 
                         let points = PlotPoints::from_iter(
                             core_n
                                 .indexed_iter()
                                 .map(|(i, z)| [i as f64 - 128., (z / core_0[i]).arg()]),
+                        );
+                        plot_ui.line(Line::new(points));
+                    });
+
+                ui.end_row();
+
+                let mut fft = core_n.to_vec();
+                rustfft::algorithm::Radix4::new(core_n.len(), rustfft::FftDirection::Forward)
+                    .process(&mut fft);
+
+                Plot::new("fft")
+                    .auto_bounds(egui::Vec2b { x: false, y: true })
+                    .include_x(-128.)
+                    .include_x(128.)
+                    .min_size(GRID_SIZE)
+                    .show(ui, |plot_ui| {
+                        let points = PlotPoints::from_iter(
+                            fft.iter()
+                                .enumerate()
+                                .map(|(i, z)| [i as f64 - 128., z.norm()]),
                         );
                         plot_ui.line(Line::new(points));
                     });
