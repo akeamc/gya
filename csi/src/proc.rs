@@ -47,12 +47,7 @@ impl WifiCsi {
 /// }
 /// ```
 #[derive(Debug, Clone, Default)]
-pub struct FrameGrouper {
-    current: [[Option<Array1<Complex<f64>>>; 4]; 4],
-    chan_spec: Option<ChanSpec>,
-    rssi: Option<i8>,
-    seq_cnt: Option<u16>,
-}
+pub struct FrameGrouper(Option<(WifiCsi, u16)>);
 
 impl FrameGrouper {
     /// Creates a new `FrameGrouper`.
@@ -60,23 +55,38 @@ impl FrameGrouper {
         Self::default()
     }
 
+    fn seq_cnt(&self) -> Option<u16> {
+        self.0.as_ref().map(|(_, seq_cnt)| *seq_cnt)
+    }
+
     /// Adds a CSI frame to the grouper.
     ///
     /// Returns `Some` if the grouper is full and should be yielded.
     pub fn add(&mut self, frame: Frame) -> Option<WifiCsi> {
-        let ret = if Some(frame.seq_cnt) != self.seq_cnt {
+        let ret = if Some(frame.seq_cnt) != self.seq_cnt() {
             let group = self.take();
-            self.seq_cnt = Some(frame.seq_cnt);
+            self.0 = Some((
+                WifiCsi {
+                    frames: [
+                        [None, None, None, None],
+                        [None, None, None, None],
+                        [None, None, None, None],
+                        [None, None, None, None],
+                    ],
+                    chan_spec: frame.chan_spec,
+                    rssi: frame.rssi,
+                },
+                frame.seq_cnt,
+            ));
             group
         } else {
             None
         };
 
+        let (group, _) = self.0.as_mut().unwrap();
         let core = frame.core as usize;
         let spatial = frame.spatial as usize;
-        self.current[core][spatial] = Some(frame.csi);
-        self.chan_spec = Some(frame.chan_spec);
-        self.rssi = Some(frame.rssi);
+        group.frames[core][spatial] = Some(frame.csi);
 
         ret
     }
@@ -86,16 +96,12 @@ impl FrameGrouper {
     /// To ensure that the last group is yielded, this method should be
     /// called after the stream of CSI frames has ended.
     pub fn take(&mut self) -> Option<WifiCsi> {
-        let csi = std::mem::take(&mut self.current);
-        if csi.iter().flatten().all(Option::is_none) {
+        let (csi, _) = self.0.take()?;
+        if csi.frames.iter().flatten().all(Option::is_none) {
             return None;
         }
 
-        Some(WifiCsi {
-            frames: csi,
-            chan_spec: self.chan_spec?,
-            rssi: self.rssi?,
-        })
+        Some(csi)
     }
 }
 
