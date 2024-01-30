@@ -8,25 +8,33 @@ use csi::{
     params::{ChanSpec, Cores, Params, SpatialStreams},
     proc::WifiCsi,
 };
+use egui::Vec2;
 use egui_plot::{Line, Plot, PlotPoints};
-use futures::TryStreamExt;
+use futures::{Stream, TryStreamExt};
 use macaddr::MacAddr6;
 use ndarray::{Array3, Axis};
-use num_complex::Complex;
+use num_complex::{Complex, ComplexFloat};
 use rt_ac86u::RtAc86u;
-use sensor::proc::wifi_csi;
+use sensor::read::{read_wifi_csi, PcapSource};
 use tokio::sync::mpsc;
 
 const MACBOOK: MacAddr6 = MacAddr6::new(0x50, 0xED, 0x3C, 0x2E, 0x04, 0x00);
 
 type Values = WifiCsi;
 
+struct Data {
+    csi: Array3<Complex<f64>>,
+    rssi: i8,
+}
+
 struct App {
     _rt: tokio::runtime::Runtime,
     rx: mpsc::Receiver<Values>,
     cnt: Arc<RelaxedCounter>,
-    csi: Array3<Complex<f64>>,
-    rssi: i8,
+    data: Vec<Data>,
+    last: bool,
+    i: usize,
+    prev_i: usize,
     core: usize,
     spatial: usize,
 }
@@ -53,8 +61,10 @@ impl App {
             _rt: rt,
             rx,
             cnt,
-            csi: Array3::zeros((4, 4, 256)),
-            rssi: 0,
+            data: vec![],
+            last: true,
+            i: 0,
+            prev_i: 0,
             core: 0,
             spatial: 0,
         }
@@ -67,6 +77,11 @@ impl eframe::App for App {
         //     ctx.load_texture("img", egui_image(&self.waterfall.image), Default::default())
         // });
 
+        if self.prev_i != self.i {
+            self.prev_i = self.i;
+            self.last = false;
+        }
+
         while let Ok(csi) = self.rx.try_recv() {
             // put the CSI data in a 2d array
             let frames = csi
@@ -78,13 +93,16 @@ impl eframe::App for App {
                 .map(ToOwned::to_owned)
                 .collect::<Vec<_>>();
 
-            let nsub = 256;
+            let nsub = csi.chan_spec.bandwidth().nsub_pow2();
 
             if frames.len() != 16 * nsub {
                 continue;
             }
 
-            self.csi = Array3::from_shape_vec((4, 4, nsub), frames).unwrap();
+            self.data.push(Data {
+                csi: Array3::from_shape_vec((4, 4, nsub), frames).unwrap(),
+                rssi: csi.rssi,
+            });
         }
 
         // if let Some(ref csi) = self.csi {
@@ -94,33 +112,50 @@ impl eframe::App for App {
         // }
 
         egui::SidePanel::left("controls").show(ctx, |ui| {
+            ui.add(egui::Checkbox::new(&mut self.last, "last"));
+            ui.add(egui::Slider::new(&mut self.i, 0..=self.data.len()).text("i"));
             ui.add(egui::Slider::new(&mut self.core, 0..=3).text("core"));
             ui.add(egui::Slider::new(&mut self.spatial, 0..=3).text("spatial"));
             ui.label(format!("{} packets", self.cnt.get()));
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                ui.set_min_height(600.0);
+            egui::Grid::new("grid").show(ui, |ui| {
+                let data = if self.last {
+                    self.data.last()
+                } else {
+                    self.data.get(self.i)
+                };
+                let Some(data) = data else {
+                    return;
+                };
 
-                // Plot::new("amplitude")
-                //     .auto_bounds(egui::Vec2b::FALSE)
-                //     .include_x(-128.)
-                //     .include_x(128.)
-                //     .include_y(0.)
-                //     .include_y(4.)
-                //     .show(ui, |plot_ui| {
-                //         let scale = 10f64.powf(self.rssi as f64 / 20.)
-                //             / csi.mapv(Complex::abs).sum().sqrt()
-                //             / 100.;
+                const GRID_SIZE: Vec2 = Vec2 { x: 500., y: 250. };
 
-                //         let points = PlotPoints::from_iter(
-                //             csi.iter()
-                //                 .enumerate()
-                //                 .map(|(i, z)| [i as f64 - 128., scale * z.abs()]),
-                //         );
-                //         plot_ui.line(Line::new(points));
-                //     });
+                let core_n = data.csi.index_axis(Axis(0), self.core);
+                let core_n = core_n.index_axis(Axis(0), self.spatial);
+
+                Plot::new("amplitude")
+                    .auto_bounds(egui::Vec2b::FALSE)
+                    .include_x(-128.)
+                    .include_x(128.)
+                    .include_y(0.)
+                    .include_y(4.)
+                    .min_size(GRID_SIZE)
+                    .show(ui, |plot_ui| {
+                        let scale = 10f64.powf(data.rssi as f64 / 20.)
+                            / core_n.mapv(Complex::abs).sum().sqrt()
+                            / 100.;
+
+                        let points = PlotPoints::from_iter(
+                            core_n
+                                .indexed_iter()
+                                .map(|(i, z)| [i as f64 - 128., scale * z.abs()]),
+                        );
+                        plot_ui.line(Line::new(points));
+                    });
+
+                ui.end_row();
 
                 Plot::new("phase")
                     .auto_bounds(egui::Vec2b::FALSE)
@@ -128,11 +163,10 @@ impl eframe::App for App {
                     .include_x(128.)
                     .include_y(-4.)
                     .include_y(4.)
+                    .min_size(GRID_SIZE)
                     .show(ui, |plot_ui| {
-                        let core_0 = self.csi.index_axis(Axis(0), 0);
+                        let core_0 = data.csi.index_axis(Axis(0), 0);
                         let core_0 = core_0.index_axis(Axis(0), self.spatial);
-                        let core_n = self.csi.index_axis(Axis(0), self.core);
-                        let core_n = core_n.index_axis(Axis(0), self.spatial);
 
                         let points = PlotPoints::from_iter(
                             core_n
@@ -167,31 +201,11 @@ async fn connect() -> anyhow::Result<RtAc86u> {
 }
 
 async fn run(args: RunArgs, tx: mpsc::Sender<Values>, cnt: &RelaxedCounter) -> anyhow::Result<()> {
-    let params = Params {
-        chan_spec: ChanSpec::new(args.channel, Band::Band5G, Bandwidth::Bw80).unwrap(),
-        csi_collect: true,
-        cores: Cores::all(),
-        spatial_streams: SpatialStreams::all(),
-        first_pkt_byte: None,
-        mac_addrs: vec![MACBOOK],
-        delay_us: 50,
-    };
+    let mut stream = pin!(get_input(&args).await?);
 
-    let client = connect().await?;
-
-    client.configure(params, args.rmmod).await?;
-
-    if let Some(path) = args.output {
-        let mut file = tokio::fs::File::create(path).await?;
-        tokio::io::copy(&mut client.tcpdump().await?, &mut file).await?;
-    } else {
-        let mut stream = pin!(wifi_csi(client.tcpdump().await?));
-
-        while let Some(group) = stream.try_next().await? {
-            tx.send(group).await.unwrap();
-
-            cnt.inc();
-        }
+    while let Some(group) = stream.try_next().await? {
+        tx.send(group).await.unwrap();
+        cnt.inc();
     }
 
     Ok(())
@@ -221,9 +235,43 @@ struct RunArgs {
     /// Remove and reinsert the dhd kernel module
     #[clap(short, long, default_value = "false")]
     rmmod: bool,
-    /// PCAP output file
+    /// Dump PCAP data
     #[clap(short, long)]
-    output: Option<PathBuf>,
+    dump: Option<PathBuf>,
+    /// PCAP input file to replay
+    #[clap(long)]
+    replay: Option<PathBuf>,
+}
+
+async fn get_input(args: &RunArgs) -> anyhow::Result<impl Stream<Item = anyhow::Result<WifiCsi>>> {
+    let (mut pcap, add_delay) = if let Some(path) = &args.replay {
+        (PcapSource::File(tokio::fs::File::open(path).await?), true)
+    } else {
+        let client = connect().await?;
+        client
+            .configure(
+                &Params {
+                    chan_spec: ChanSpec::new(args.channel, Band::Band5G, Bandwidth::Bw80).unwrap(),
+                    csi_collect: true,
+                    cores: Cores::all(),
+                    spatial_streams: SpatialStreams::all(),
+                    first_pkt_byte: None,
+                    mac_addrs: vec![MACBOOK],
+                    delay_us: 50,
+                },
+                args.rmmod,
+            )
+            .await?;
+        (PcapSource::Router(client.tcpdump().await?), false)
+    };
+
+    if let Some(path) = &args.dump {
+        let mut file = tokio::fs::File::create(path).await?;
+        tokio::io::copy(&mut pcap, &mut file).await?;
+        unreachable!()
+    } else {
+        Ok(read_wifi_csi(pcap, add_delay))
+    }
 }
 
 fn main() -> anyhow::Result<()> {
@@ -235,7 +283,7 @@ fn main() -> anyhow::Result<()> {
         Command::Run(args) => {
             let app = App::new(args);
 
-            eframe::run_native("SENSOR", Default::default(), Box::new(|_| Box::new(app))).unwrap();
+            eframe::run_native("🤓", Default::default(), Box::new(|_| Box::new(app))).unwrap();
         }
         Command::Reboot => {
             tokio::runtime::Builder::new_multi_thread()
