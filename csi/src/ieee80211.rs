@@ -4,10 +4,19 @@
 //! - [802.11ac: A Survival Guide](https://www.oreilly.com/library/view/80211ac-a-survival/9781449357702/ch02.html)
 //! - [List of WLAN channels (Wikipedia)](https://en.wikipedia.org/wiki/List_of_WLAN_channels#5_GHz_(802.11a/h/n/ac/ax))
 
+use std::marker::PhantomData;
+
 use ndarray::Array1;
+use uom::si::f64::{Frequency, Velocity};
 
 /// Speed of light in meters per second.
-const C: f64 = 299_792_458.;
+const C_OLD: f64 = 299_792_458.;
+
+const C: Velocity = Velocity {
+    dimension: PhantomData,
+    units: PhantomData,
+    value: 299_792_458.,
+};
 
 /// Band.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -60,6 +69,19 @@ impl Bandwidth {
             Bandwidth::Bw40 => 128,  // 108 total
             Bandwidth::Bw80 => 256,  // 242 total
             Bandwidth::Bw160 => 512, // 484 total
+        }
+    }
+
+    pub const fn freq(&self) -> Frequency {
+        Frequency {
+            dimension: PhantomData,
+            units: PhantomData,
+            value: match self {
+                Bandwidth::Bw20 => 20e6,
+                Bandwidth::Bw40 => 40e6,
+                Bandwidth::Bw80 => 80e6,
+                Bandwidth::Bw160 => 160e6,
+            },
         }
     }
 }
@@ -165,7 +187,7 @@ pub fn subcarrier_freqs(center: u8, bandwidth: Bandwidth) -> Array1<f64> {
 /// Returns the subcarrier wavelengths (in meters) for a given center frequency and bandwidth.
 pub fn subcarrier_lambda(center: u8, bandwidth: Bandwidth) -> Array1<f64> {
     let mut v = subcarrier_freqs(center, bandwidth);
-    v.mapv_inplace(|f| C / f);
+    v.mapv_inplace(|f| C_OLD / f);
     v
 }
 

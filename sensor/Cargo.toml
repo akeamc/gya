@@ -25,3 +25,4 @@ rustfft = "6.2.0"
 tokio = { version = "1.35.0", features = ["full"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+uom = "0.35.0"

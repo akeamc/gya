@@ -1,4 +1,4 @@
-use std::{path::PathBuf, pin::pin, sync::Arc};
+use std::{marker::PhantomData, path::PathBuf, pin::pin, sync::Arc};
 
 use async_ssh2_tokio::client::{AuthMethod, Client, ServerCheckMethod};
 use atomic_counter::{AtomicCounter, RelaxedCounter};
@@ -6,22 +6,29 @@ use clap::{Args, Parser, Subcommand};
 use csi::{
     ieee80211::{Band, Bandwidth},
     params::{ChanSpec, Cores, Params, SpatialStreams},
-    proc::WifiCsi,
+    proc::{aoa, tof, WifiCsi},
 };
 use egui::Vec2;
 use egui_plot::{Line, Plot, PlotPoints};
 use futures::{Stream, TryStreamExt};
 use macaddr::MacAddr6;
-use ndarray::{Array3, Axis};
+
 use num_complex::{Complex, ComplexFloat};
 use rt_ac86u::RtAc86u;
 use rustfft::Fft;
 use sensor::read::{read_wifi_csi, PcapSource};
 use tokio::sync::mpsc;
+use uom::si::f64::{Length, Velocity};
 
 const MACBOOK: MacAddr6 = MacAddr6::new(0x50, 0xED, 0x3C, 0x2E, 0x04, 0x00);
 
 type Values = WifiCsi;
+
+const C: Velocity = Velocity {
+    dimension: PhantomData,
+    units: PhantomData,
+    value: 299_792_458.,
+};
 
 struct App {
     _rt: tokio::runtime::Runtime,
@@ -33,6 +40,8 @@ struct App {
     prev_i: usize,
     core: usize,
     spatial: usize,
+    antenna_spacing: f64,
+    distances: Vec<Length>,
 }
 
 impl App {
@@ -63,6 +72,8 @@ impl App {
             prev_i: 0,
             core: 0,
             spatial: 0,
+            antenna_spacing: 0.1,
+            distances: vec![],
         }
     }
 }
@@ -80,7 +91,12 @@ impl eframe::App for App {
 
         while let Ok(csi) = self.rx.try_recv() {
             if csi.frames().iter().flatten().all(Option::is_some) {
+                let tof = tof(&csi);
+                let avg = (tof[0] + tof[1] + tof[2] + tof[3]) / 4.;
+                self.distances.push(C * avg);
                 self.data.push(csi);
+            } else {
+                println!(":(")
             }
         }
 
@@ -97,31 +113,40 @@ impl eframe::App for App {
             );
             ui.add(egui::Slider::new(&mut self.core, 0..=3).text("core"));
             ui.add(egui::Slider::new(&mut self.spatial, 0..=3).text("spatial"));
+            ui.add(
+                egui::Slider::new(&mut self.antenna_spacing, 0.01..=0.2).text("antenna spacing"),
+            );
             ui.label(format!("{} packets", self.cnt.get()));
         });
 
+        let data = if self.last {
+            self.data.last()
+        } else {
+            self.data.get(self.i)
+        };
+        let Some(data) = data else {
+            return;
+        };
+
+        let half_nsub = (data.chan_spec.bandwidth().nsub_pow2() / 2) as f64;
+
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::Grid::new("grid").show(ui, |ui| {
-                let data = if self.last {
-                    self.data.last()
-                } else {
-                    self.data.get(self.i)
-                };
-                let Some(data) = data else {
-                    return;
-                };
+                if let Some(aoa) = aoa(data, self.antenna_spacing) {
+                    ui.label(format!("{}", aoa.to_degrees()));
+                }
 
-                const GRID_SIZE: Vec2 = Vec2 { x: 500., y: 250. };
+                const PLOT_SIZE: Vec2 = Vec2 { x: 500., y: 250. };
 
                 let core_n = data.get(self.core, self.spatial).unwrap();
 
                 Plot::new("amplitude")
                     .auto_bounds(egui::Vec2b::FALSE)
-                    .include_x(-128.)
-                    .include_x(128.)
+                    .include_x(-half_nsub)
+                    .include_x(half_nsub)
                     .include_y(0.)
                     .include_y(4.)
-                    .min_size(GRID_SIZE)
+                    .min_size(PLOT_SIZE)
                     .show(ui, |plot_ui| {
                         let scale = 10f64.powf(data.rssi as f64 / 20.)
                             / core_n.mapv(Complex::abs).sum().sqrt()
@@ -130,7 +155,7 @@ impl eframe::App for App {
                         let points = PlotPoints::from_iter(
                             core_n
                                 .indexed_iter()
-                                .map(|(i, z)| [i as f64 - 128., scale * z.abs()]),
+                                .map(|(i, z)| [i as f64 - half_nsub, scale * z.abs()]),
                         );
                         plot_ui.line(Line::new(points));
                     });
@@ -139,18 +164,18 @@ impl eframe::App for App {
 
                 Plot::new("phase")
                     .auto_bounds(egui::Vec2b::FALSE)
-                    .include_x(-128.)
-                    .include_x(128.)
+                    .include_x(-half_nsub)
+                    .include_x(half_nsub)
                     .include_y(-4.)
                     .include_y(4.)
-                    .min_size(GRID_SIZE)
+                    .min_size(PLOT_SIZE)
                     .show(ui, |plot_ui| {
                         let core_0 = data.get(0, self.spatial).unwrap();
 
                         let points = PlotPoints::from_iter(
                             core_n
                                 .indexed_iter()
-                                .map(|(i, z)| [i as f64 - 128., (z / core_0[i]).arg()]),
+                                .map(|(i, z)| [i as f64 - half_nsub, (z / core_0[i]).arg()]),
                         );
                         plot_ui.line(Line::new(points));
                     });
@@ -158,19 +183,33 @@ impl eframe::App for App {
                 ui.end_row();
 
                 let mut fft = core_n.to_vec();
-                rustfft::algorithm::Radix4::new(core_n.len(), rustfft::FftDirection::Forward)
+                rustfft::algorithm::Radix4::new(core_n.len(), rustfft::FftDirection::Inverse)
                     .process(&mut fft);
 
                 Plot::new("fft")
                     .auto_bounds(egui::Vec2b { x: false, y: true })
-                    .include_x(-128.)
-                    .include_x(128.)
-                    .min_size(GRID_SIZE)
+                    .include_x(-half_nsub)
+                    .include_x(half_nsub)
+                    .min_size(PLOT_SIZE)
                     .show(ui, |plot_ui| {
                         let points = PlotPoints::from_iter(
                             fft.iter()
                                 .enumerate()
-                                .map(|(i, z)| [i as f64 - 128., z.norm()]),
+                                .map(|(i, z)| [i as f64 - half_nsub, z.norm()]),
+                        );
+                        plot_ui.line(Line::new(points));
+                    });
+
+                ui.end_row();
+
+                Plot::new("distances")
+                    .min_size(PLOT_SIZE)
+                    .show(ui, |plot_ui| {
+                        let points = PlotPoints::from_iter(
+                            self.distances
+                                .iter()
+                                .enumerate()
+                                .map(|(i, d)| [i as f64, d.get::<uom::si::length::meter>()]),
                         );
                         plot_ui.line(Line::new(points));
                     });
@@ -250,7 +289,7 @@ async fn get_input(args: &RunArgs) -> anyhow::Result<impl Stream<Item = anyhow::
         client
             .configure(
                 &Params {
-                    chan_spec: ChanSpec::new(args.channel, Band::Band5G, Bandwidth::Bw80).unwrap(),
+                    chan_spec: ChanSpec::new(args.channel, Band::Band5G, Bandwidth::Bw40).unwrap(),
                     csi_collect: true,
                     cores: Cores::all(),
                     spatial_streams: SpatialStreams::all(),

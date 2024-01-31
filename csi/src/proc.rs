@@ -1,9 +1,12 @@
 //! CSI processing.
 
-use ndarray::Array1;
-use num_complex::Complex;
+use ndarray::{Array1, ArrayBase, Data, Dim};
 
-use crate::{frame::Frame, params::ChanSpec};
+use num_complex::Complex;
+use rustfft::Fft;
+use uom::si::f64::Time;
+
+use crate::{frame::Frame, ieee80211::subcarrier_lambda, params::ChanSpec};
 
 /// CSI information for a single Wi-Fi frame.
 ///
@@ -105,24 +108,58 @@ impl FrameGrouper {
     }
 }
 
+fn phase_shift_to_angle(
+    phase: &ArrayBase<impl Data<Elem = f64>, Dim<[usize; 1]>>,
+    wavelength: &ArrayBase<impl Data<Elem = f64>, Dim<[usize; 1]>>,
+    antenna_distance: f64,
+) -> f64 {
+    let a =
+        (phase * wavelength / (2. * std::f64::consts::PI * antenna_distance)).mapv(|x| x.asin());
+
+    a.fold(0., |s, a| if a.is_nan() { s } else { s + a }) / a.len() as f64
+}
+
 /// Calculate the angle of arrival (AoA) of a Wi-Fi frame. In radians, of course.
-pub fn aoa(csi: &WifiCsi) -> Option<f64> {
+pub fn aoa(csi: &WifiCsi, d: f64) -> Option<f64> {
     // let m = ndarray::arr2(&[
     //     csi.frames[0][0].clone()?,
     //     csi.frames[1][0].clone()?,
     //     csi.frames[2][0].clone()?,
     // ]);
 
-    let m = ndarray::stack![
-        ndarray::Axis(0),
-        csi.frames[0][0].clone()?,
-        csi.frames[1][0].clone()?,
-        csi.frames[2][0].clone()?
-    ];
+    let a0 = csi.frames[0][0].clone()?;
+    let a1 = csi.frames[1][0].clone()?;
+    let a2 = csi.frames[2][0].clone()?;
 
-    let angles = m.map(|z| z.arg());
+    let wavelengths = subcarrier_lambda(csi.chan_spec.center(), csi.chan_spec.bandwidth());
 
-    println!("{}", angles);
+    let phi_1 = phase_shift_to_angle(&(a1 / &a0).map(|z| z.arg()), &wavelengths, d);
+    let phi_2 = phase_shift_to_angle(&(a2 / &a0).map(|z| z.arg()), &wavelengths, 2. * d);
 
-    todo!();
+    dbg!(phi_1, phi_2);
+
+    Some(phi_1)
+}
+
+pub fn tof(csi: &WifiCsi) -> Vec<Time> {
+    let mut tofs = vec![];
+
+    for core in 0..4 {
+        if let Some(buf) = csi.get(core, 0) {
+            let mut buf = buf.to_vec();
+            rustfft::algorithm::Radix4::new(buf.len(), rustfft::FftDirection::Inverse)
+                .process(&mut buf);
+            let half = &buf[..buf.len() / 2];
+            let (peak_idx, _) = half
+                .iter()
+                .enumerate()
+                .map(|(idx, Complex { re, im: _ })| (idx, re))
+                .max_by(|(_, a), (_, b)| a.total_cmp(b))
+                .unwrap();
+
+            tofs.push(peak_idx as f64 / csi.chan_spec.bandwidth().freq())
+        }
+    }
+
+    tofs
 }
