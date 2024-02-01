@@ -2,7 +2,7 @@
 
 use ndarray::{Array1, ArrayBase, Data, Dim};
 
-use num_complex::Complex;
+use num_complex::{Complex, ComplexFloat};
 use rustfft::Fft;
 use uom::si::f64::Time;
 
@@ -152,8 +152,8 @@ pub fn tof(csi: &WifiCsi) -> Vec<Time> {
             let half = &buf[..buf.len() / 2];
             let (peak_idx, _) = half
                 .iter()
+                .map(|z| z.abs())
                 .enumerate()
-                .map(|(idx, Complex { re, im: _ })| (idx, re))
                 .max_by(|(_, a), (_, b)| a.total_cmp(b))
                 .unwrap();
 
