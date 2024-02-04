@@ -6,7 +6,11 @@ use num_complex::{Complex, ComplexFloat};
 use rustfft::Fft;
 use uom::si::f64::Time;
 
-use crate::{frame::Frame, ieee80211::subcarrier_lambda, params::ChanSpec};
+use crate::{
+    frame::Frame,
+    ieee80211::{subcarrier_lambda, Bandwidth},
+    params::ChanSpec,
+};
 
 /// CSI information for a single Wi-Fi frame.
 ///
@@ -120,25 +124,47 @@ fn phase_shift_to_angle(
 }
 
 /// Calculate the angle of arrival (AoA) of a Wi-Fi frame. In radians, of course.
-pub fn aoa(csi: &WifiCsi, d: f64) -> Option<f64> {
+///
+/// Antenna indices:
+///
+/// <img src="https://user-images.githubusercontent.com/57238941/115536641-50408100-a29a-11eb-9ee7-866e654e6969.png" width="200" />
+///
+/// (0, 3, 1) from left to right.
+pub fn aoa(csi: &WifiCsi, d: f64) -> Option<(f64, f64)> {
     // let m = ndarray::arr2(&[
     //     csi.frames[0][0].clone()?,
     //     csi.frames[1][0].clone()?,
     //     csi.frames[2][0].clone()?,
     // ]);
 
-    let a0 = csi.frames[0][0].clone()?;
-    let a1 = csi.frames[1][0].clone()?;
-    let a2 = csi.frames[2][0].clone()?;
+    // https://user-images.githubusercontent.com/57238941/115536641-50408100-a29a-11eb-9ee7-866e654e6969.png
+    const LEFT_ANTENNA: usize = 0;
+    const CENTER_ANTENNA: usize = 3;
+    const RIGHT_ANTENNA: usize = 1;
+
+    let a0 = csi.frames[RIGHT_ANTENNA][0].clone()?;
+    let a1 = csi.frames[CENTER_ANTENNA][0].clone()?;
+    let a2 = csi.frames[LEFT_ANTENNA][0].clone()?;
 
     let wavelengths = subcarrier_lambda(csi.chan_spec.center(), csi.chan_spec.bandwidth());
 
     let phi_1 = phase_shift_to_angle(&(a1 / &a0).map(|z| z.arg()), &wavelengths, d);
     let phi_2 = phase_shift_to_angle(&(a2 / &a0).map(|z| z.arg()), &wavelengths, 2. * d);
 
-    dbg!(phi_1, phi_2);
+    Some((phi_1, phi_2))
+}
 
-    Some(phi_1)
+fn tof_in_place(csi: &mut [Complex<f64>], bandwidth: Bandwidth) -> Time {
+    rustfft::algorithm::Radix4::new(csi.len(), rustfft::FftDirection::Inverse).process(csi);
+    let half = &csi[..csi.len() / 2];
+    let (peak_idx, _) = half
+        .iter()
+        .map(|z| z.abs())
+        .enumerate()
+        .max_by(|(_, a), (_, b)| a.total_cmp(b))
+        .unwrap();
+
+    peak_idx as f64 / bandwidth.freq()
 }
 
 pub fn tof(csi: &WifiCsi) -> Vec<Time> {
@@ -146,18 +172,7 @@ pub fn tof(csi: &WifiCsi) -> Vec<Time> {
 
     for core in 0..4 {
         if let Some(buf) = csi.get(core, 0) {
-            let mut buf = buf.to_vec();
-            rustfft::algorithm::Radix4::new(buf.len(), rustfft::FftDirection::Inverse)
-                .process(&mut buf);
-            let half = &buf[..buf.len() / 2];
-            let (peak_idx, _) = half
-                .iter()
-                .map(|z| z.abs())
-                .enumerate()
-                .max_by(|(_, a), (_, b)| a.total_cmp(b))
-                .unwrap();
-
-            tofs.push(peak_idx as f64 / csi.chan_spec.bandwidth().freq())
+            tofs.push(tof_in_place(&mut buf.to_vec(), csi.chan_spec.bandwidth()));
         }
     }
 

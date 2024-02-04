@@ -136,16 +136,9 @@ mod tests {
 
     #[test]
     fn test_chanspec() {
-        dbg!(
-            chanspec_aton("10/80"),
-            ChanSpec::new(10, Band::Band5G, Bandwidth::Bw80)
-        );
-
         let a = chanspec_aton("100/80");
         let b = ChanSpec::new(100, Band::Band5G, Bandwidth::Bw80).unwrap();
 
         assert_eq!(a, b.as_u16());
-
-        dbg!(chanspec_aton("10/20"));
     }
 }

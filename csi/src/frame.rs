@@ -140,7 +140,6 @@ impl Frame {
 
         if csi.len() < chan_spec.bandwidth().nsub_pow2() * 4 {
             // not enough bytes
-            dbg!(csi.len() / 4, chan_spec.bandwidth());
             return Err(Error::NotEnoughBytes);
         }
 

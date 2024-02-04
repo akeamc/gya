@@ -7,7 +7,10 @@
 use std::marker::PhantomData;
 
 use ndarray::Array1;
-use uom::si::f64::{Frequency, Velocity};
+use uom::si::{
+    f64::{Frequency, Velocity},
+    frequency::hertz,
+};
 
 /// Speed of light in meters per second.
 const C_OLD: f64 = 299_792_458.;
@@ -72,6 +75,7 @@ impl Bandwidth {
         }
     }
 
+    /// The frequency in Hz.
     pub const fn freq(&self) -> Frequency {
         Frequency {
             dimension: PhantomData,
@@ -179,7 +183,7 @@ fn channel_mhz(channel: u8) -> u32 {
 /// ```
 pub fn subcarrier_freqs(center: u8, bandwidth: Bandwidth) -> Array1<f64> {
     let center = channel_mhz(center) as f64 * 1e6;
-    let half_bw = bandwidth.mhz() as f64 * 1e6 / 2.;
+    let half_bw = bandwidth.freq().get::<hertz>() / 2.;
 
     Array1::linspace(center - half_bw, center + half_bw, bandwidth.nsub_pow2())
 }
