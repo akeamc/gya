@@ -298,6 +298,9 @@ struct RunArgs {
     /// Dump AOA data
     #[clap(long)]
     aoa: Option<PathBuf>,
+    /// Don't add delay to replay
+    #[clap(long, default_value = "false")]
+    replay_quick: bool,
 }
 
 const RT_AC86U_EXTERNAL: Cores =
@@ -305,7 +308,10 @@ const RT_AC86U_EXTERNAL: Cores =
 
 async fn get_input(args: &RunArgs) -> anyhow::Result<impl Stream<Item = anyhow::Result<WifiCsi>>> {
     let (mut pcap, add_delay) = if let Some(path) = &args.replay {
-        (PcapSource::File(tokio::fs::File::open(path).await?), true)
+        (
+            PcapSource::File(tokio::fs::File::open(path).await?),
+            !args.replay_quick,
+        )
     } else {
         let client = connect().await?;
         client
