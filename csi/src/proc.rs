@@ -116,11 +116,8 @@ fn phase_shift_to_angle(
     phase: &ArrayBase<impl Data<Elem = f64>, Dim<[usize; 1]>>,
     wavelength: &ArrayBase<impl Data<Elem = f64>, Dim<[usize; 1]>>,
     antenna_distance: f64,
-) -> f64 {
-    let a =
-        (phase * wavelength / (2. * std::f64::consts::PI * antenna_distance)).mapv(|x| x.asin());
-
-    a.fold(0., |s, a| if a.is_nan() { s } else { s + a }) / a.len() as f64
+) -> Array1<f64> {
+    (phase * wavelength / (2. * std::f64::consts::PI * antenna_distance)).mapv(|x| x.asin())
 }
 
 /// Calculate the angle of arrival (AoA) of a Wi-Fi frame. In radians, of course.
@@ -130,7 +127,7 @@ fn phase_shift_to_angle(
 /// <img src="https://user-images.githubusercontent.com/57238941/115536641-50408100-a29a-11eb-9ee7-866e654e6969.png" width="200" />
 ///
 /// (0, 3, 1) from left to right.
-pub fn aoa(csi: &WifiCsi, d: f64) -> Option<(f64, f64)> {
+pub fn aoa(csi: &WifiCsi, d: f64) -> Option<[Array1<f64>; 2]> {
     // let m = ndarray::arr2(&[
     //     csi.frames[0][0].clone()?,
     //     csi.frames[1][0].clone()?,
@@ -142,16 +139,16 @@ pub fn aoa(csi: &WifiCsi, d: f64) -> Option<(f64, f64)> {
     const CENTER_ANTENNA: usize = 3;
     const RIGHT_ANTENNA: usize = 1;
 
-    let a0 = csi.frames[RIGHT_ANTENNA][0].clone()?;
-    let a1 = csi.frames[CENTER_ANTENNA][0].clone()?;
-    let a2 = csi.frames[LEFT_ANTENNA][0].clone()?;
+    let a0 = csi.get(RIGHT_ANTENNA, 0)?;
+    let a1 = csi.get(CENTER_ANTENNA, 0)?;
+    let a2 = csi.get(LEFT_ANTENNA, 0)?;
 
     let wavelengths = subcarrier_lambda(csi.chan_spec.center(), csi.chan_spec.bandwidth());
 
-    let phi_1 = phase_shift_to_angle(&(a1 / &a0).map(|z| z.arg()), &wavelengths, d);
-    let phi_2 = phase_shift_to_angle(&(a2 / &a0).map(|z| z.arg()), &wavelengths, 2. * d);
-
-    Some((phi_1, phi_2))
+    Some([
+        phase_shift_to_angle(&(a1 / a0).map(|z| z.arg()), &wavelengths, d),
+        phase_shift_to_angle(&(a2 / a0).map(|z| z.arg()), &wavelengths, 2. * d),
+    ])
 }
 
 fn tof_in_place(csi: &mut [Complex<f64>], bandwidth: Bandwidth) -> Time {

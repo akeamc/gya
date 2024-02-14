@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, path::PathBuf, pin::pin, sync::Arc};
+use std::{marker::PhantomData, path::PathBuf, pin::pin, sync::Arc, time::Instant};
 
 use async_ssh2_tokio::client::{AuthMethod, Client, ServerCheckMethod};
 use atomic_counter::{AtomicCounter, RelaxedCounter};
@@ -40,7 +40,6 @@ struct App {
     core: usize,
     spatial: usize,
     antenna_spacing: f64,
-    aoas: Vec<(f64, f64)>,
     distances: Vec<Length>,
 }
 
@@ -73,7 +72,6 @@ impl App {
             core: 0,
             spatial: 0,
             antenna_spacing: 0.088,
-            aoas: vec![],
             distances: vec![],
         }
     }
@@ -91,9 +89,6 @@ impl eframe::App for App {
             // let tof = tof(&csi);
             // let avg = (tof[0] + tof[1] + tof[2] + tof[3]) / 4.;
             // self.distances.push(C * avg);
-            if let Some(aoa) = aoa(&csi, self.antenna_spacing) {
-                self.aoas.push(aoa);
-            }
             self.data.push(csi);
             // } else {
             // println!(":(")
@@ -193,25 +188,6 @@ impl eframe::App for App {
 
                     ui.end_row();
 
-                    Plot::new("aoas").min_size(PLOT_SIZE).show(ui, |plot_ui| {
-                        let a1 = PlotPoints::from_iter(
-                            self.aoas
-                                .iter()
-                                .enumerate()
-                                .map(|(i, (a, _))| [i as f64, a.to_degrees()]),
-                        );
-                        plot_ui.line(Line::new(a1));
-                        let a2 = PlotPoints::from_iter(
-                            self.aoas
-                                .iter()
-                                .enumerate()
-                                .map(|(i, (_, a))| [i as f64, a.to_degrees()]),
-                        );
-                        plot_ui.line(Line::new(a2));
-                    });
-
-                    ui.end_row();
-
                     Plot::new("distances")
                         .min_size(PLOT_SIZE)
                         .show(ui, |plot_ui| {
@@ -266,8 +242,22 @@ async fn connect() -> anyhow::Result<RtAc86u> {
 
 async fn run(args: RunArgs, tx: mpsc::Sender<Values>, cnt: &RelaxedCounter) -> anyhow::Result<()> {
     let mut stream = pin!(get_input(&args).await?);
+    let mut writer = args.aoa.as_ref().map(csv::Writer::from_path).transpose()?;
+    let t0 = Instant::now();
 
     while let Some(group) = stream.try_next().await? {
+        if let Some(ref mut writer) = writer.as_mut() {
+            if let Some(aoa) = aoa(&group, 0.088) {
+                writer.write_field((Instant::now() - t0).as_secs_f64().to_string())?;
+
+                for aoa in aoa.iter().flat_map(|x| x.iter()) {
+                    writer.write_field(aoa.to_string())?;
+                }
+                writer.write_record(None::<&[u8]>)?;
+            }
+            writer.flush()?;
+        }
+
         tx.send(group).await.unwrap();
         cnt.inc();
     }
@@ -305,6 +295,9 @@ struct RunArgs {
     /// PCAP input file to replay
     #[clap(long)]
     replay: Option<PathBuf>,
+    /// Dump AOA data
+    #[clap(long)]
+    aoa: Option<PathBuf>,
 }
 
 const RT_AC86U_EXTERNAL: Cores =
