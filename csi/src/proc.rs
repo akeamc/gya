@@ -130,23 +130,15 @@ pub fn aoa(csi: &WifiCsi, d: f64) -> Option<[Array1<f64>; 2]> {
     const CENTER_ANTENNA: usize = 3;
     const RIGHT_ANTENNA: usize = 1;
 
-    let a0 = csi.get(RIGHT_ANTENNA, 0)?;
-    let a1 = csi.get(CENTER_ANTENNA, 0)?;
-    let a2 = csi.get(LEFT_ANTENNA, 0)?;
+    let a0 = csi.get(RIGHT_ANTENNA, 0)?.map(|z| z.arg());
+    let a1 = csi.get(CENTER_ANTENNA, 0)?.map(|z| z.arg());
+    let a2 = csi.get(LEFT_ANTENNA, 0)?.map(|z| z.arg());
 
     let wavelengths = subcarrier_lambda(csi.chan_spec.center(), csi.chan_spec.bandwidth());
 
     Some([
-        phase_shift_to_angle(
-            &(a1.map(|z| z.arg()) - a0.map(|z| z.arg())),
-            &wavelengths,
-            d,
-        ),
-        phase_shift_to_angle(
-            &(a2.map(|z| z.arg()) - a0.map(|z| z.arg())),
-            &wavelengths,
-            2. * d,
-        ),
+        phase_shift_to_angle(&(a1 - &a0), &wavelengths, d),
+        phase_shift_to_angle(&(a2 - &a0), &wavelengths, 2. * d),
     ])
 }
 

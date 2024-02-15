@@ -9,10 +9,11 @@ use csi::{
     proc::{aoa, WifiCsi},
 };
 use egui::Vec2;
-use egui_plot::{Line, Plot, PlotPoints, Points};
+use egui_plot::{Line, Plot, PlotPoints};
 use futures::{Stream, TryStreamExt};
 use macaddr::MacAddr6;
 
+use ndhistogram::{axis::BinInterval, Histogram};
 use num_complex::{Complex, ComplexFloat};
 use rt_ac86u::RtAc86u;
 use sensor::read::{read_wifi_csi, PcapSource};
@@ -20,6 +21,8 @@ use tokio::sync::mpsc;
 use uom::si::f64::Length;
 
 const MACBOOK: MacAddr6 = MacAddr6::new(0x50, 0xED, 0x3C, 0x2E, 0x04, 0x00);
+
+const BANDWIDTH: Bandwidth = Bandwidth::Bw40;
 
 type Values = WifiCsi;
 
@@ -198,40 +201,40 @@ impl eframe::App for App {
 
                     ui.end_row();
 
-                    Plot::new("aoas")
-                        // .auto_bounds(egui::Vec2b::FALSE)
-                        // .include_y(-4.)
-                        // .include_y(4.)
-                        .min_size(PLOT_SIZE)
-                        .show(ui, |plot_ui| {
-                            if self.aoas.is_empty() {
-                                return;
-                            }
+                    // Plot::new("aoas")
+                    //     // .auto_bounds(egui::Vec2b::FALSE)
+                    //     // .include_y(-4.)
+                    //     // .include_y(4.)
+                    //     .min_size(PLOT_SIZE)
+                    //     .show(ui, |plot_ui| {
+                    //         if self.aoas.is_empty() {
+                    //             return;
+                    //         }
 
-                            for i in 0..self.aoas[0].len() {
-                                let raw = PlotPoints::from_iter(
-                                    self.aoas.iter().enumerate().filter_map(|(t, vec)| {
-                                        let y = vec.get(i)?.to_degrees();
-                                        if y.is_finite() {
-                                            Some([t as f64, y])
-                                        } else {
-                                            None
-                                        }
-                                    }),
-                                );
-                                plot_ui.points(Points::new(raw));
-                            }
+                    //         for i in 0..self.aoas[0].len() {
+                    //             let raw = PlotPoints::from_iter(
+                    //                 self.aoas.iter().enumerate().filter_map(|(t, vec)| {
+                    //                     let y = vec.get(i)?.to_degrees();
+                    //                     if y.is_finite() {
+                    //                         Some([t as f64, y])
+                    //                     } else {
+                    //                         None
+                    //                     }
+                    //                 }),
+                    //             );
+                    //             plot_ui.points(Points::new(raw));
+                    //         }
 
-                            // let raw = PlotPoints::from_iter(
-                            //     self.aoas
-                            //         .iter()
-                            //         .enumerate()
-                            //         .flat_map(|(i, vec)| vec.iter().filter(|v| v.is_finite()).map(move |angle| [i as f64, angle.to_degrees()])),
-                            // );
-                            // plot_ui.line(Line::new(raw));
-                        });
+                    //         // let raw = PlotPoints::from_iter(
+                    //         //     self.aoas
+                    //         //         .iter()
+                    //         //         .enumerate()
+                    //         //         .flat_map(|(i, vec)| vec.iter().filter(|v| v.is_finite()).map(move |angle| [i as f64, angle.to_degrees()])),
+                    //         // );
+                    //         // plot_ui.line(Line::new(raw));
+                    //     });
 
-                    ui.end_row();
+                    // ui.end_row();
 
                     Plot::new("distances")
                         .min_size(PLOT_SIZE)
@@ -286,13 +289,32 @@ async fn connect() -> anyhow::Result<RtAc86u> {
 }
 
 async fn run(args: RunArgs, tx: mpsc::Sender<Values>, cnt: &RelaxedCounter) -> anyhow::Result<()> {
+    use ndhistogram::{axis::Uniform, ndhistogram};
+    use plotters::prelude::*;
+
     let mut stream = pin!(get_input(&args).await?);
+    // let mut stream = stream.take(args.samples.unwrap_or(usize::MAX));
     let mut writer = args.aoa.as_ref().map(csv::Writer::from_path).transpose()?;
     let t0 = Instant::now();
+    let mut data = vec![];
+
+    let low = -50.;
+    let high = 50.;
+    let n_bins = 100;
 
     while let Some(group) = stream.try_next().await? {
-        if let Some(ref mut writer) = writer.as_mut() {
-            if let Some(aoa) = aoa(&group, 0.088) {
+        println!("{:?}", group);
+
+        if let Some(aoa) = aoa(&group, 0.088) {
+            let mut hist = ndhistogram!(Uniform::new(n_bins, low, high));
+
+            for v in aoa.iter().flat_map(|x| x.iter()) {
+                if v.is_finite() {
+                    hist.fill(&v.to_degrees());
+                }
+            }
+
+            if let Some(ref mut writer) = writer.as_mut() {
                 writer.write_field((Instant::now() - t0).as_secs_f64().to_string())?;
 
                 for aoa in aoa.iter().flat_map(|x| x.iter()) {
@@ -302,11 +324,52 @@ async fn run(args: RunArgs, tx: mpsc::Sender<Values>, cnt: &RelaxedCounter) -> a
                 writer.write_record(None::<&[u8]>)?;
                 writer.flush()?;
             }
+
+            data.push(hist);
         }
 
         tx.send(group).await.unwrap();
         cnt.inc();
     }
+
+    let root = BitMapBackend::new("aoa.png", (1920, 1080)).into_drawing_area();
+
+    root.fill(&WHITE)?;
+
+    let mut chart = ChartBuilder::on(&root)
+        .margin(5)
+        .y_label_area_size(80)
+        .x_label_area_size(80)
+        .top_x_label_area_size(80)
+        .build_cartesian_2d(0..data.len(), low..high)?;
+
+    chart
+        .configure_mesh()
+        .disable_x_mesh()
+        .disable_y_mesh()
+        .x_desc("Sample #")
+        .y_desc("Angle (degrees)")
+        .x_label_style(TextStyle::from(("sans-serif", 24)))
+        .y_label_style(TextStyle::from(("sans-serif", 24)))
+        .draw()?;
+
+    // draw the histogram
+
+    chart.draw_series(data.iter().enumerate().flat_map(|(t, hist)| {
+        let max = hist.values().max_by(|a, b| a.total_cmp(b)).unwrap();
+        hist.iter().filter_map(move |item| {
+            let g = colorgrad::magma();
+            let BinInterval::Bin { start, end } = item.bin else {
+                return None;
+            };
+            let [r, g, b, a] = g.at(item.value / max).to_rgba8();
+
+            Some(Rectangle::new(
+                [(t, start), (t + 1, end)],
+                RGBAColor(r, g, b, a as f64 / 255.).filled(),
+            ))
+        })
+    }))?;
 
     Ok(())
 }
@@ -330,7 +393,7 @@ enum Command {
 #[derive(Debug, Args)]
 struct RunArgs {
     /// Channel to use
-    #[clap(short, long, default_value = "100")]
+    #[clap(short, long)]
     channel: u8,
     /// Remove and reinsert the dhd kernel module
     #[clap(short, long, default_value = "false")]
@@ -347,6 +410,9 @@ struct RunArgs {
     /// Don't add delay to replay
     #[clap(long, default_value = "false")]
     replay_quick: bool,
+    /// Number of samples to collect. If not specified, will collect indefinitely
+    #[clap(short, long)]
+    samples: Option<usize>,
 }
 
 const RT_AC86U_EXTERNAL: Cores =
@@ -363,7 +429,7 @@ async fn get_input(args: &RunArgs) -> anyhow::Result<impl Stream<Item = anyhow::
         client
             .configure(
                 &Params {
-                    chan_spec: ChanSpec::new(args.channel, Band::Band5G, Bandwidth::Bw40).unwrap(),
+                    chan_spec: ChanSpec::new(args.channel, Band::Band5G, BANDWIDTH).unwrap(),
                     csi_collect: true,
                     cores: RT_AC86U_EXTERNAL,
                     // spatial_streams: SpatialStreams::all(),
