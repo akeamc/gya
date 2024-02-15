@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, path::PathBuf, pin::pin, sync::Arc, time::Instant};
+use std::{path::PathBuf, pin::pin, sync::Arc, time::Instant};
 
 use async_ssh2_tokio::client::{AuthMethod, Client, ServerCheckMethod};
 use atomic_counter::{AtomicCounter, RelaxedCounter};
@@ -17,17 +17,11 @@ use num_complex::{Complex, ComplexFloat};
 use rt_ac86u::RtAc86u;
 use sensor::read::{read_wifi_csi, PcapSource};
 use tokio::sync::mpsc;
-use uom::si::f64::{Length, Velocity};
+use uom::si::f64::Length;
 
 const MACBOOK: MacAddr6 = MacAddr6::new(0x50, 0xED, 0x3C, 0x2E, 0x04, 0x00);
 
 type Values = WifiCsi;
-
-const C: Velocity = Velocity {
-    dimension: PhantomData,
-    units: PhantomData,
-    value: 299_792_458.,
-};
 
 struct App {
     _rt: tokio::runtime::Runtime,

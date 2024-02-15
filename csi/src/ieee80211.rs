@@ -7,19 +7,10 @@
 use std::marker::PhantomData;
 
 use ndarray::Array1;
-use uom::si::{
-    f64::{Frequency, Velocity},
-    frequency::hertz,
-};
+use uom::si::{f64::Frequency, frequency::hertz};
 
 /// Speed of light in meters per second.
-const C_OLD: f64 = 299_792_458.;
-
-const C: Velocity = Velocity {
-    dimension: PhantomData,
-    units: PhantomData,
-    value: 299_792_458.,
-};
+const C: f64 = 299_792_458.;
 
 /// Band.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -188,10 +179,10 @@ pub fn subcarrier_freqs(center: u8, bandwidth: Bandwidth) -> Array1<f64> {
     Array1::linspace(center - half_bw, center + half_bw, bandwidth.nsub_pow2())
 }
 
-/// Returns the subcarrier wavelengths (in meters) for a given center frequency and bandwidth.
+/// Returns the subcarrier wavelengths for a given center frequency and bandwidth.
 pub fn subcarrier_lambda(center: u8, bandwidth: Bandwidth) -> Array1<f64> {
     let mut v = subcarrier_freqs(center, bandwidth);
-    v.mapv_inplace(|f| C_OLD / f);
+    v.mapv_inplace(|f| C / f);
     v
 }
 

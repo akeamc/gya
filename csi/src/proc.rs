@@ -27,10 +27,7 @@ pub struct WifiCsi {
 }
 
 impl WifiCsi {
-    pub fn frames(&self) -> &[[Option<Array1<Complex<f64>>>; 4]; 4] {
-        &self.frames
-    }
-
+    /// Returns the CSI frame for a given core and spatial stream.
     pub fn get(&self, core: usize, spatial: usize) -> Option<&Array1<Complex<f64>>> {
         self.frames[core][spatial].as_ref()
     }
@@ -166,6 +163,7 @@ fn tof_in_place(csi: &mut [Complex<f64>], bandwidth: Bandwidth) -> Time {
     peak_idx as f64 / bandwidth.freq()
 }
 
+/// Calculate the time of flight (ToF) of a Wi-Fi frame.
 pub fn tof(csi: &WifiCsi) -> Vec<Time> {
     let mut tofs = vec![];
 

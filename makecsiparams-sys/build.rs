@@ -21,5 +21,7 @@ fn main() {
         .include("vendor")
         .file("vendor/makecsiparams.c")
         .file("vendor/bcmwifi_channels.c")
+        .warnings(false)
+        .flag("-Wno-pointer-to-int-cast")
         .compile("makecsiparams-sys-cc");
 }
