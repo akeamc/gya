@@ -23,5 +23,7 @@ fn main() {
         .file("vendor/bcmwifi_channels.c")
         .warnings(false)
         .flag("-Wno-pointer-to-int-cast")
+        .flag("-Wno-implicit-function-declaration")
+        .flag("-Wno-int-conversion")
         .compile("makecsiparams-sys-cc");
 }
