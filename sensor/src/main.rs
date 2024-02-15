@@ -9,7 +9,7 @@ use csi::{
     proc::{aoa, WifiCsi},
 };
 use egui::Vec2;
-use egui_plot::{Line, Plot, PlotPoints};
+use egui_plot::{Line, Plot, PlotPoints, Points};
 use futures::{Stream, TryStreamExt};
 use macaddr::MacAddr6;
 
@@ -40,6 +40,7 @@ struct App {
     core: usize,
     spatial: usize,
     antenna_spacing: f64,
+    aoas: Vec<Vec<f64>>,
     distances: Vec<Length>,
 }
 
@@ -72,6 +73,7 @@ impl App {
             core: 0,
             spatial: 0,
             antenna_spacing: 0.088,
+            aoas: vec![],
             distances: vec![],
         }
     }
@@ -89,6 +91,20 @@ impl eframe::App for App {
             // let tof = tof(&csi);
             // let avg = (tof[0] + tof[1] + tof[2] + tof[3]) / 4.;
             // self.distances.push(C * avg);
+
+            if let Some(aoa) = aoa(&csi, self.antenna_spacing) {
+                let aoa = aoa
+                    .iter()
+                    .flat_map(|x| x.iter())
+                    .filter(|x| x.is_finite())
+                    .copied()
+                    .collect::<Vec<f64>>();
+                // let n = aoa.len();
+                // let (_, &mut median, _) = aoa.select_nth_unstable_by(n/ 2, |a, b| a.total_cmp(b));
+                // self.aoas.push(median);
+                self.aoas.push(aoa);
+            }
+
             self.data.push(csi);
             // } else {
             // println!(":(")
@@ -188,6 +204,41 @@ impl eframe::App for App {
 
                     ui.end_row();
 
+                    Plot::new("aoas")
+                        // .auto_bounds(egui::Vec2b::FALSE)
+                        // .include_y(-4.)
+                        // .include_y(4.)
+                        .min_size(PLOT_SIZE)
+                        .show(ui, |plot_ui| {
+                            if self.aoas.is_empty() {
+                                return;
+                            }
+
+                            for i in 0..self.aoas[0].len() {
+                                let raw = PlotPoints::from_iter(
+                                    self.aoas.iter().enumerate().filter_map(|(t, vec)| {
+                                        let y = vec.get(i)?.to_degrees();
+                                        if y.is_finite() {
+                                            Some([t as f64, y])
+                                        } else {
+                                            None
+                                        }
+                                    }),
+                                );
+                                plot_ui.points(Points::new(raw));
+                            }
+
+                            // let raw = PlotPoints::from_iter(
+                            //     self.aoas
+                            //         .iter()
+                            //         .enumerate()
+                            //         .flat_map(|(i, vec)| vec.iter().filter(|v| v.is_finite()).map(move |angle| [i as f64, angle.to_degrees()])),
+                            // );
+                            // plot_ui.line(Line::new(raw));
+                        });
+
+                    ui.end_row();
+
                     Plot::new("distances")
                         .min_size(PLOT_SIZE)
                         .show(ui, |plot_ui| {
@@ -253,9 +304,10 @@ async fn run(args: RunArgs, tx: mpsc::Sender<Values>, cnt: &RelaxedCounter) -> a
                 for aoa in aoa.iter().flat_map(|x| x.iter()) {
                     writer.write_field(aoa.to_string())?;
                 }
+
                 writer.write_record(None::<&[u8]>)?;
+                writer.flush()?;
             }
-            writer.flush()?;
         }
 
         tx.send(group).await.unwrap();

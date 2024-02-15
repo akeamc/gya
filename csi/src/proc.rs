@@ -117,7 +117,7 @@ fn phase_shift_to_angle(
     wavelength: &ArrayBase<impl Data<Elem = f64>, Dim<[usize; 1]>>,
     antenna_distance: f64,
 ) -> Array1<f64> {
-    (phase * wavelength / (2. * std::f64::consts::PI * antenna_distance)).mapv(|x| x.asin())
+    (phase * wavelength / (std::f64::consts::TAU * antenna_distance)).mapv(|x| x.asin())
 }
 
 /// Calculate the angle of arrival (AoA) of a Wi-Fi frame. In radians, of course.
@@ -128,12 +128,6 @@ fn phase_shift_to_angle(
 ///
 /// (0, 3, 1) from left to right.
 pub fn aoa(csi: &WifiCsi, d: f64) -> Option<[Array1<f64>; 2]> {
-    // let m = ndarray::arr2(&[
-    //     csi.frames[0][0].clone()?,
-    //     csi.frames[1][0].clone()?,
-    //     csi.frames[2][0].clone()?,
-    // ]);
-
     // https://user-images.githubusercontent.com/57238941/115536641-50408100-a29a-11eb-9ee7-866e654e6969.png
     const LEFT_ANTENNA: usize = 0;
     const CENTER_ANTENNA: usize = 3;
