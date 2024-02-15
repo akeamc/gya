@@ -140,8 +140,16 @@ pub fn aoa(csi: &WifiCsi, d: f64) -> Option<[Array1<f64>; 2]> {
     let wavelengths = subcarrier_lambda(csi.chan_spec.center(), csi.chan_spec.bandwidth());
 
     Some([
-        phase_shift_to_angle(&(a1 / a0).map(|z| z.arg()), &wavelengths, d),
-        phase_shift_to_angle(&(a2 / a0).map(|z| z.arg()), &wavelengths, 2. * d),
+        phase_shift_to_angle(
+            &(a1.map(|z| z.arg()) - a0.map(|z| z.arg())),
+            &wavelengths,
+            d,
+        ),
+        phase_shift_to_angle(
+            &(a2.map(|z| z.arg()) - a0.map(|z| z.arg())),
+            &wavelengths,
+            2. * d,
+        ),
     ])
 }
 
