@@ -1,3 +1,5 @@
+#import "@preview/tablex:0.0.8": tablex
+
 // The project function defines how your document looks.
 // It takes your content and some metadata and formats it.
 // Go ahead and customize it to your liking!
@@ -5,6 +7,7 @@
   title: "",
   sammanfattning: [],
   abstract: [],
+  acknowledgements: [],
   authors: (),
   date: none,
   logo: "sodralatin.svg",
@@ -19,12 +22,15 @@
   set text(font: body-font, lang: "sv")
   show heading: set text(font: sans-font)
   set heading(numbering: "1.1")
+  set math.equation(numbering: "(1)")
+
+  show link: underline
 
   // Title page.
   // The page can contain a logo if you pass one with `logo: "logo.png"`.
   grid(
     columns: (1fr, 20%),
-    text(1.1em, [
+    text([
       Södra Latins gymnasium, Stockholm \
       #authors.join("\n") \
       #date \
@@ -40,7 +46,7 @@
   text(2em, weight: 700, font: sans-font, tracking: -0.02em, title)
 
   // Author information.
-  pad(
+  /* pad(
     top: 0.7em,
     right: 20%,
     grid(
@@ -48,7 +54,7 @@
       gutter: 1em,
       ..authors.map(author => align(start, strong(author))),
     ),
-  )
+  ) */
 
   v(2.4fr)
 
@@ -57,43 +63,53 @@
   pagebreak()
 
   set page(
-    numbering: "1",
-    number-align: center,
     header: [
       #set text(8pt)
       #smallcaps([Amcoff och Åkesson: #title])
       #h(1fr) #date
     ],
+    footer: [
+      #h(1fr)
+      #counter(page).display("1")
+    ]
   )
   counter(page).update(1)
 
-  // Abstract page.
-  v(1fr)
-  align(center)[
-    #heading(
-      outlined: false,
-      numbering: none,
-      text(0.85em, smallcaps[Sammanfattning]),
-    )
-    #sammanfattning
+  // Main body.
+  set par(justify: true)
 
-    #heading(
-      outlined: false,
-      numbering: none,
-      text(0.85em, smallcaps[Abstract]),
-    )
-    #abstract
-  ]
-  v(1.618fr)
-  pagebreak()
+  // Abstract page.
+  heading(
+    outlined: false,
+    numbering: none,
+    [Sammanfattning],
+  )
+  sammanfattning
+
+  // pagebreak(weak: true)
+
+  heading(
+    outlined: false,
+    numbering: none,
+    [Abstract],
+  )
+  abstract
+
+  pagebreak(weak: true)
+
+  heading(
+    outlined: false,
+    numbering: none,
+    [Tillkännagivanden],
+  )
+  acknowledgements
+
+  pagebreak(weak: true)
 
   // Table of contents.
   outline(depth: none, indent: true)
   pagebreak()
 
-
-  // Main body.
-  set par(justify: true)
 
   // Decimal comma
   show math.equation: it => {

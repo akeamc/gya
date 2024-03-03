@@ -303,8 +303,6 @@ async fn run(args: RunArgs, tx: mpsc::Sender<Values>, cnt: &RelaxedCounter) -> a
     let n_bins = 100;
 
     while let Some(group) = stream.try_next().await? {
-        println!("{:?}", group);
-
         if let Some(aoa) = aoa(&group, 0.088) {
             let mut hist = ndhistogram!(Uniform::new(n_bins, low, high));
 
@@ -356,19 +354,34 @@ async fn run(args: RunArgs, tx: mpsc::Sender<Values>, cnt: &RelaxedCounter) -> a
     // draw the histogram
 
     chart.draw_series(data.iter().enumerate().flat_map(|(t, hist)| {
-        let max = hist.values().max_by(|a, b| a.total_cmp(b)).unwrap();
-        hist.iter().filter_map(move |item| {
-            let g = colorgrad::magma();
-            let BinInterval::Bin { start, end } = item.bin else {
-                return None;
-            };
-            let [r, g, b, a] = g.at(item.value / max).to_rgba8();
+        let max = hist
+            .iter()
+            .max_by(|a, b| a.value.total_cmp(b.value))
+            .unwrap();
 
-            Some(Rectangle::new(
+        println!("{:?}", max);
+
+        let BinInterval::Bin { start, end } = max.bin else {
+            panic!();
+        };
+
+        hist.iter()
+            .filter_map(move |item| {
+                let g = colorgrad::magma();
+                let BinInterval::Bin { start, end } = item.bin else {
+                    return None;
+                };
+                let [r, g, b, a] = g.at(item.value / max.value).to_rgba8();
+
+                Some(Rectangle::new(
+                    [(t, start), (t + 1, end)],
+                    RGBAColor(r, g, b, a as f64 / 255.).filled(),
+                ))
+            })
+            .chain(std::iter::once(Rectangle::new(
                 [(t, start), (t + 1, end)],
-                RGBAColor(r, g, b, a as f64 / 255.).filled(),
-            ))
-        })
+                RGBAColor(0, 255, 255, 1.),
+            )))
     }))?;
 
     Ok(())
