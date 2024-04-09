@@ -17,7 +17,10 @@ impl UniformLinearArray {
         (0..self.n_sources)
             .map(|i| {
                 let i = i as f64;
-                let s = Vector2::new((i - (self.n_sources - 1) as f64 * 0.5) * self.source_spacing, 0.0);
+                let s = Vector2::new(
+                    (i - (self.n_sources - 1) as f64 * 0.5) * self.source_spacing,
+                    0.0,
+                );
                 (((p - s).norm() * PI + self.angle * i) * self.wavelength).sin()
             })
             .sum::<f64>()

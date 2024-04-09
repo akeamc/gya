@@ -359,29 +359,22 @@ async fn run(args: RunArgs, tx: mpsc::Sender<Values>, cnt: &RelaxedCounter) -> a
             .max_by(|a, b| a.value.total_cmp(b.value))
             .unwrap();
 
-        println!("{:?}", max);
+        let g = colorgrad::CustomGradient::new()
+            .html_colors(&["white", "blue"])
+            .build()
+            .unwrap();
 
-        let BinInterval::Bin { start, end } = max.bin else {
-            panic!();
-        };
+        hist.iter().filter_map(move |item| {
+            let BinInterval::Bin { start, end } = item.bin else {
+                return None;
+            };
+            let [r, g, b, a] = g.at(item.value / max.value).to_rgba8();
 
-        hist.iter()
-            .filter_map(move |item| {
-                let g = colorgrad::magma();
-                let BinInterval::Bin { start, end } = item.bin else {
-                    return None;
-                };
-                let [r, g, b, a] = g.at(item.value / max.value).to_rgba8();
-
-                Some(Rectangle::new(
-                    [(t, start), (t + 1, end)],
-                    RGBAColor(r, g, b, a as f64 / 255.).filled(),
-                ))
-            })
-            .chain(std::iter::once(Rectangle::new(
+            Some(Rectangle::new(
                 [(t, start), (t + 1, end)],
-                RGBAColor(0, 255, 255, 1.),
-            )))
+                RGBAColor(r, g, b, a as f64 / 255.).filled(),
+            ))
+        })
     }))?;
 
     Ok(())
