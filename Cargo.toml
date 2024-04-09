@@ -1,6 +1,14 @@
 [workspace]
 resolver = "2"
-members = ["csi", "sensor", "nexmon-test", "nexmon-test/nexmon-test-sys", "rt-ac86u", "makecsiparams-sys"]
+members = [
+    "csi",
+    "interferens",
+    "makecsiparams-sys",
+    "nexmon-test",
+    "nexmon-test/nexmon-test-sys",
+    "rt-ac86u",
+    "sensor",
+]
 
 [workspace.dependencies]
 csi = { path = "csi" }
