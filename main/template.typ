@@ -10,7 +10,6 @@
   acknowledgements: [],
   authors: (),
   date: none,
-  logo: "sodralatin.svg",
   body,
 ) = {
   // Set the document's basic properties.
@@ -26,41 +25,41 @@
 
   show link: underline
 
-  // Title page.
-  // The page can contain a logo if you pass one with `logo: "logo.png"`.
-  grid(
-    columns: (1fr, 20%),
-    text([
-      Södra Latins gymnasium, Stockholm \
-      #authors.join("\n") \
-      #date \
-      (Datum för inlämning reviderad version 1) \
-      (Datum för inlämning reviderad version 2)
-    ]),
-    image(logo, width: 100%)
+  set page(margin: 0pt)
+
+  image("cover.jpg", width: 100%, height: 100%)
+
+  let logo = read("sodralatin.svg").replace(
+    "#000000",
+    white.to-hex(),
   )
   
-  v(9.6fr)
+  place(top, box(inset: 2.5cm, height: 100%, [
+    #set text(fill: white, font: sans-font, weight: "bold")
+    #grid(
+      columns: (1fr, 20%),
+      text([
+        Södra Latins gymnasium, Stockholm \
+        #authors.join("\n") \
+        #date \
+        //(Datum för inlämning reviderad version 1) \
+        //(Datum för inlämning reviderad version 2)
+      ]),
+      //image.decode(logo, width: 100%)
+    )
+    
+    #v(1fr)
 
-  v(1.2em, weak: true)
-  text(2em, weight: 700, font: sans-font, tracking: -0.02em, title)
-
-  // Author information.
-  /* pad(
-    top: 0.7em,
-    right: 20%,
-    grid(
-      columns: 1fr,
-      gutter: 1em,
-      ..authors.map(author => align(start, strong(author))),
-    ),
-  ) */
-
-  v(2.4fr)
-
-  align(right, text(1.1em, "Handledare: Rickard Fors"))
+    #box(width: 70%, text(3.5em, weight: 700, font: sans-font, tracking: -0.02em, title))
   
+    #v(8em)
+  
+    #text(1.1em, "Handledare: Rickard Fors")
+  ]))
+
   pagebreak()
+
+  set page(margin: auto)
 
   set page(
     header: [
@@ -71,7 +70,7 @@
     footer: [
       #h(1fr)
       #counter(page).display("1")
-    ]
+    ],
   )
   counter(page).update(1)
 
@@ -88,12 +87,14 @@
 
   // pagebreak(weak: true)
 
+  set text(lang: "en")
   heading(
     outlined: false,
     numbering: none,
     [Abstract],
   )
   abstract
+  set text(lang: "sv")
 
   pagebreak(weak: true)
 
