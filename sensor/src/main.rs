@@ -1,4 +1,9 @@
-use std::{path::PathBuf, pin::pin, sync::Arc, time::Instant};
+use std::{
+    path::{Path, PathBuf},
+    pin::pin,
+    sync::Arc,
+    time::Instant,
+};
 
 use async_ssh2_tokio::client::{AuthMethod, Client, ServerCheckMethod};
 use atomic_counter::{AtomicCounter, RelaxedCounter};
@@ -13,8 +18,12 @@ use egui_plot::{Line, Plot, PlotPoints};
 use futures::{Stream, TryStreamExt};
 use macaddr::MacAddr6;
 
-use ndhistogram::{axis::BinInterval, Histogram};
+use ndhistogram::{
+    axis::{BinInterval, Uniform},
+    AxesTuple, Histogram, VecHistogram,
+};
 use num_complex::{Complex, ComplexFloat};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use rt_ac86u::RtAc86u;
 use sensor::read::{read_wifi_csi, PcapSource};
 use tokio::sync::mpsc;
@@ -288,8 +297,88 @@ async fn connect() -> anyhow::Result<RtAc86u> {
     Ok(client)
 }
 
+const LOW: f64 = -50.;
+const HIGH: f64 = 50.;
+
+fn simple_histogram<P>(
+    path: &P,
+    hist: VecHistogram<AxesTuple<(Uniform,)>, f64>,
+) -> anyhow::Result<()>
+where
+    P: AsRef<Path> + ?Sized,
+{
+    use plotters::prelude::*;
+
+    let root = BitMapBackend::new(path, (1920, 1080)).into_drawing_area();
+
+    root.fill(&WHITE)?;
+
+    let max = hist
+        .iter()
+        .max_by(|a, b| a.value.total_cmp(b.value))
+        .unwrap()
+        .value;
+
+    let mut chart = ChartBuilder::on(&root)
+        .margin(5)
+        .y_label_area_size(100)
+        .x_label_area_size(80)
+        // .top_x_label_area_size(80)
+        .build_cartesian_2d((LOW as i32)..(HIGH as _), 0..((max.ceil() * 1.1) as _))?;
+
+    chart
+        .configure_mesh()
+        .disable_x_mesh()
+        .disable_y_mesh()
+        .x_desc("θ (degrees)")
+        .y_desc("Frequency")
+        .x_label_style(TextStyle::from(("sans-serif", 24)))
+        .y_label_style(TextStyle::from(("sans-serif", 24)))
+        .draw()?;
+
+    chart.draw_series(
+        Histogram::vertical(&chart)
+            .style(BLUE.filled())
+            .margin(0)
+            .data(
+                hist.iter()
+                    .filter_map(|item| Some((item.bin.start()? as i32, *item.value as _))),
+            ),
+    )?;
+
+    Ok(())
+}
+
+fn mean(data: &[f64]) -> Option<f64> {
+    let sum = data.iter().sum::<f64>();
+    if data.is_empty() {
+        None
+    } else {
+        Some(sum / data.len() as f64)
+    }
+}
+
+fn std_deviation(data: &[f64]) -> Option<f64> {
+    match (mean(data), data.len()) {
+        (Some(data_mean), count) if count > 0 => {
+            let variance = data
+                .iter()
+                .map(|value| {
+                    let diff = data_mean - value;
+
+                    diff * diff
+                })
+                .sum::<f64>()
+                / count as f64;
+
+            Some(variance.sqrt())
+        }
+        _ => None,
+    }
+}
+
 async fn run(args: RunArgs, tx: mpsc::Sender<Values>, cnt: &RelaxedCounter) -> anyhow::Result<()> {
-    use ndhistogram::{axis::Uniform, ndhistogram};
+    use ndhistogram::ndhistogram;
     use plotters::prelude::*;
 
     let mut stream = pin!(get_input(&args).await?);
@@ -298,17 +387,34 @@ async fn run(args: RunArgs, tx: mpsc::Sender<Values>, cnt: &RelaxedCounter) -> a
     let t0 = Instant::now();
     let mut data = vec![];
 
-    let low = -50.;
-    let high = 50.;
     let n_bins = 100;
+
+    let mut rng = StdRng::seed_from_u64(0);
+
+    let mut big_hist = ndhistogram!(Uniform::new(n_bins, LOW, HIGH));
+    let mut values = vec![];
+
+    for _ in 0..args.skip {
+        stream.try_next().await?;
+    }
 
     while let Some(group) = stream.try_next().await? {
         if let Some(aoa) = aoa(&group, 0.088) {
-            let mut hist = ndhistogram!(Uniform::new(n_bins, low, high));
+            let mut hist = ndhistogram!(Uniform::new(n_bins, LOW, HIGH));
+            let chacha = if args.maracas == 0. {
+                0.
+            } else {
+                rng.sample::<f64, _>(rand_distr::StandardNormal) * args.maracas
+            };
 
-            for v in aoa.iter().flat_map(|x| x.iter()) {
-                if v.is_finite() {
-                    hist.fill(&v.to_degrees());
+            for x in &aoa {
+                for v in x {
+                    if v.is_finite() {
+                        let v = v.to_degrees() + args.offset + chacha;
+                        hist.fill(&v);
+                        big_hist.fill(&v);
+                        values.push(v);
+                    }
                 }
             }
 
@@ -330,6 +436,8 @@ async fn run(args: RunArgs, tx: mpsc::Sender<Values>, cnt: &RelaxedCounter) -> a
         cnt.inc();
     }
 
+    dbg!(mean(&values), std_deviation(&values));
+
     let root = BitMapBackend::new("aoa.png", (1920, 1080)).into_drawing_area();
 
     root.fill(&WHITE)?;
@@ -339,20 +447,19 @@ async fn run(args: RunArgs, tx: mpsc::Sender<Values>, cnt: &RelaxedCounter) -> a
         .y_label_area_size(80)
         .x_label_area_size(80)
         .top_x_label_area_size(80)
-        .build_cartesian_2d(0..data.len(), low..high)?;
+        .build_cartesian_2d(0..data.len(), LOW..HIGH)?;
 
     chart
         .configure_mesh()
         .disable_x_mesh()
         .disable_y_mesh()
         .x_desc("Sample #")
-        .y_desc("Angle (degrees)")
+        .y_desc("θ (degrees)")
         .x_label_style(TextStyle::from(("sans-serif", 24)))
         .y_label_style(TextStyle::from(("sans-serif", 24)))
         .draw()?;
 
     // draw the histogram
-
     chart.draw_series(data.iter().enumerate().flat_map(|(t, hist)| {
         let max = hist
             .iter()
@@ -376,6 +483,8 @@ async fn run(args: RunArgs, tx: mpsc::Sender<Values>, cnt: &RelaxedCounter) -> a
             ))
         })
     }))?;
+
+    simple_histogram("hist.png", big_hist)?;
 
     Ok(())
 }
@@ -419,6 +528,12 @@ struct RunArgs {
     /// Number of samples to collect. If not specified, will collect indefinitely
     #[clap(short, long)]
     samples: Option<usize>,
+    #[clap(long, default_value = "0")]
+    offset: f64,
+    #[clap(long, default_value = "0")]
+    maracas: f64,
+    #[clap(long, default_value = "0")]
+    skip: usize,
 }
 
 const RT_AC86U_EXTERNAL: Cores =
@@ -482,28 +597,6 @@ fn main() -> anyhow::Result<()> {
         }
         _ => unimplemented!(),
     }
-
-    // if let Command::Aoa { input } = &cli.command {
-    //     tokio::runtime::Builder::new_multi_thread()
-    //         .build()?
-    //         .block_on(async {
-    //             let file = tokio::fs::File::open(input).await.unwrap();
-    //             let mut frames = pin!(wifi_csi(file));
-    //             // let mut frames = frames.skip(100);
-
-    //             let frame = frames.try_next().await.unwrap().unwrap();
-
-    //             plot(&frame).unwrap();
-
-    //             while let Some(frame) = frames.try_next().await.unwrap() {
-    //                 if let Some(aoa) = aoa(&frame) {
-    //                     println!("{}", aoa);
-    //                 }
-    //             }
-    //         })
-    // } else {
-
-    // }
 
     Ok(())
 }
