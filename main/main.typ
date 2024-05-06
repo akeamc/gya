@@ -14,18 +14,18 @@
   sammanfattning: [
     //En sammanfattning av hela arbetet (syfte, metod, resultat och slutsatser) på högst en halv sida. En läsare ska kunna förstå vad ni har undersökt, hur ni gjort det och vilka resultat ni kommit fram till genom att bara läsa sammanfattningen.
 
-    Hela tiden platsbestämns vi, och platsdata samlas in av appar som Google Maps för att till exempel mäta mängden trängsel på restauranger eller fordonstrafik. Denna platsbestämning sker genom GPS-system inuti enheterna där deras position avgörs genom trilaterering. Problemet med denna metod är att avsändarna själva avgör när de vill skicka in information till en databas. Platsbestämning av enheter utan detta sjärrapporteringsbehov skulle möjliggöra mer omfattande statistik angående platsdata. Syftet med detta gymnasiearbete är att undersöka hur rimlig denna form av lokalisering av wifiklienter är avseende vilken precision som kan uppnås.
+    Hela tiden platsbestäms vi, och platsdata samlas in av appar som Google Maps för att till exempel mäta mängden trängsel på restauranger eller fordonstrafik. Denna platsbestämning sker genom GPS-system inuti enheterna där deras position avgörs genom trilaterering. Problemet med denna metod är att avsändarna själva avgör när de vill skicka in information till en databas. Platsbestämning av enheter utan detta självrapporteringsbehov skulle möjliggöra mer omfattande statistik angående platsdata. Syftet med detta gymnasiearbete är att undersöka hur rimlig denna form av lokalisering av wifiklienter är avseende vilken precision som kan uppnås.
 
     För att undersöka detta omprogrammerade vi mjukvaran i en Asus RT-AC86U wifirouter i syfte att mäta fasförskjutningen av signaler från en wifiklient mellan routerns tre externa antenner och på så sätt beräkna precisionen möjlig vid triangulering med denna router -- som är en tämligen typisk "off-the-shelf"-router, vilket är avgörande för om ett system baserat på denna rapport kan implementeras i existerande wifinätverksinstallationer.
 
-    I experimentet uppnåddes en precision om #qty("+-10", "degree") för vinklar mellan #qty("-30", "degree") och #qty("30", "degree"). På grund av antennernas placering på routern kunde inte större vinklar mätas.
+    I experimentet uppnåddes en precision om i genomsnitt #qty("+-0.77", "degree") för vinklar mellan #qty("-30", "degree") och #qty("30", "degree"). På grund av antennernas placering på routern kunde inte större vinklar mätas.
   ],
   abstract: [
-    We are localized all the time, and location data is collected by applications such as Google Maps in order to measure crowdedness at restaurants, or traffic levels, for example. This localization is done using the built-in GPS systems of the devices, which in turn utilize satellites and trilateration to determine the location of the devices. The main issue with this method is that it builds upon _active_ localization, meaning that the devices being localized themselves need to report their location, as opposed to _passive_ localization where the position of the devices can be silently detected by a third party. Passive localization would thus enable more thorough location statistics. The purpose of this paper is to determine the level of precision achieveable with such a passive localization system.
+    We are localised all the time, and location data is collected by applications such as Google Maps in order to measure crowdedness at restaurants, or traffic levels, for example. This localisation is done using the built-in GPS systems of the devices, which in turn utilise satellites and trilateration to determine the location of the devices. The main issue with this method is that it builds upon _active_ localisation, meaning that the devices being localised themselves need to report their location, as opposed to _passive_ localisation where the position of the devices can be silently detected by a third party. Passive localisation would thus enable more thorough location statistics. The purpose of this paper is to determine the level of precision achievable with such a passive localisation system.
 
     In order to study this, we reprogrammed the firmware of an Asus RT-AC86U wifi router to be able to measure the phase shift between the router's three antennas of wifi signals originating from a wifi client in order to determine the angle of arrival of the signal, and in turn the direction of the wifi device itself. A crucial property of the wifi router used in this study is that it is a very typical, off-the-shelf router, which means a system based on this paper could be deployed widely at low cost.
 
-    A precision of #qty("+-10", "degree") for angles between #qty("-30", "degree") and #qty("30", "degree") was achieved in the experiment. The manufacturer's antenna placement prohibited the measuring of larger angles.
+    An average precision of #qty("+-0.77", "degree") for angles between #qty("-30", "degree") and #qty("30", "degree") was achieved in the experiment. The manufacturer's antenna placement prohibited the measuring of larger angles.
   ],
   acknowledgements: [
     //En kall novembereftermiddag följde vår käre vän Vidar Nordqvist med Åke Amcoff till Hökarängen för att köpa en begagnad router på Blocket. Tack.
@@ -45,9 +45,11 @@
 
 == Presentation
 
-Sedan början av 1970-talet har GPS (Global Positioning System) blivit en alltmer använd teknologi. Det fungerar genom att ett flertal satelliter skickar ut information cirka 20~000~kilometer från jorden med hjälp av transpondrar om sin exakta tid och position. GPS-mottagaren får då in information från flera satelliter och kan genom _trilaterering_ räkna ut exakt var den är. Trilaterering är ett sätt att fastställa en enhets position genom att mäta avståndet från enheten till tre eller fler andra enheter (se @tri). Eftersom det finns minst fyra satelliter ovanför ett GPS system fungerar detta alltid. @lantmateriet
+Sedan början av 1970-talet har GPS _(Global Positioning System)_ blivit en alltmer använd teknologi. Det fungerar genom att ett flertal satelliter skickar ut information cirka 20~000~kilometer från jorden med hjälp av transpondrar om sin exakta tid och position. GPS-mottagaren (installerad i en mobiltelefon, till exempel) får då in information från flera satelliter och kan genom _trilaterering_ räkna ut exakt var den är. Trilaterering är ett sätt att fastställa en enhets position genom att mäta avståndet från enheten till tre eller fler andra enheter (se @tri). Eftersom det finns minst fyra satelliter ovanför ett GPS system fungerar detta alltid #footnote([Förutsatt att GPS-signalerna når mottagaren och inte blockeras av tjocka betongväggar eller dylikt.]). @lantmateriet
 
-Idag platsbestäms vi hela tiden, och platsdata samlas in _en masse_ av appar som Google Maps för att till exempel uppskatta hur trafikerad en väg är eller hur trång en restaurang är -- i realtid. Denna funktion bygger på självrapportering. Wifienheter vet genom GPS sin position och ger den informationen till Google som sedan drar slutsats om trafikering. Eftersom denna metod är beroroende av självrapportering avgör enheten själv när dess information bör sändas till en databas. Detta skiljer sig från _passiv lokalisering_ där en sensor avgör var en enhet är utan att någon åtgärd krävs från användarens enhets håll. 
+Idag platsbestäms vi hela tiden, och platsdata samlas in _en masse_ av appar som Google Maps för att till exempel uppskatta hur trafikerad en väg är eller hur trång en restaurang är -- i realtid. Denna funktion bygger på självrapportering. Wifienheter vet genom GPS sin position och ger den informationen till Google som sedan drar slutsats om trafikering. Eftersom denna metod är beroende av självrapportering avgör enheten själv när dess information bör sändas till en databas. Detta skiljer sig från _passiv lokalisering_ där en sensor avgör var en enhet är utan att någon åtgärd krävs från användarens enhets håll. 
+
+Problemet med passiv lokalisering är att det potentiellt strider mot dataskyddsförordningen på ett flertal punkter. För att behandling av personuppgifter ska vara laglig måste den stödja sig på minst en av förordningens sex rättsliga grunder. Ifall en omfattande insamling av platsdata som enbart går att genomföras utan aktiv tillåtelse från varje enhets ägare faller inom ramen av allmänt intresse skulle det till exempel vara lagligt. Om det vore lagligt skulle det ändå krävas mycket resurser för att säkerställa att alla personuppgifter hanteras korrekt vilket kan vara mer kostsamt än användbart. Eftersom dataskyddsförordningen gäller i hela EU är det heller inte rimligt att den kan förändras för att tillåta passiv lokalisering på stor skala.   
 
 Fastställning av position är dock inte bara möjligt genom trilaterering. Istället för distans och tid kan det genom _triangulering_ platsbestämmas. I denna metod mäts vinkeln mellan avsändare och minst två mottagare. Om mottagarnas exakta positioner är kända kan avsändarens plats bestämmas. Eftersom tid inte är en variabel som beräknas är atomklockor inte nödvändiga för platsbestämning genom triangulering vilket gör denna metod billigare och enklare för undersökningar på en mindre skala än motsvarande trilatereringsmetod, när det rör sig om radiosignaler, vars hastighet är så hög ($c$) att skillnaden i ankomsttid mellan mottagare kan vara bara några nanosekunder.
 
@@ -59,17 +61,13 @@ Syftet med detta gymnasiearbete är att undersöka om passiv platsbestämning av
 
 Problemet med _aktiv platsbestämning_ är att den är beroende av självrapportering. Alltså avgör enheter själva när information om deras position är lämplig att sända till en databas. På grund av att enheterna själva avgör när platsbestämning är lämpligt ger inte detta lika omfattande statistik som platsbestämning utan aktiv tillåtelse. Ifall hög precision kan uppnås genom passiv platsbestämning skulle detta ha många tillämpningsområden inom effektivisering av stadsplanering. 
 
-Den mer omfattande mängden data skulle innebära enklare identifiering av trafikering. Butiksägare och restaurangsägare kan då bättre optimera öppetider och marknadsföring för att minska konkurrens samt öka tillgänglighet. Det skulle också göra livet enklare för konsumenter, eftersom de alltid hade vetat väntetider för restauranger eller trängsel i butiker och mataffärer vilket skulle innebära en minskning i slöseri av tid. Uppskattningar av fordonstrafik skulle också vara mer korrekta vilket hade möjliggjort mer effektiv infrastruktur, eftersom problematiska områden och tidpunkter då är mer uppenbara.
+Den mer omfattande mängden data skulle innebära enklare identifiering av trafikering. Butiksägare och restaurangägare kan då bättre optimera öppettider och marknadsföring för att minska konkurrens samt öka tillgänglighet. Det skulle också göra livet enklare för konsumenter, eftersom de alltid hade vetat väntetider för restauranger eller trängsel i butiker och mataffärer vilket skulle innebära en minskning i slöseri av tid. Uppskattningar av fordonstrafik skulle också vara mer korrekta vilket hade möjliggjort mer effektiv infrastruktur, eftersom problematiska områden och tidpunkter då är mer uppenbara.
 
 Problematiska områden avseende smittspridning vore också enklare att identifiera. Vid utbrott av aggressivt smittsamma sjukdomar skulle mer effektiv samt större mängd platsdata möjliggöra för områdesspecifika restriktioner och då minska behovet av omfattande restriktioner samt mängden drabbade av sjukdom. Privatpersoner hade då mer enkelt kunnat ta del av nödvändiga aktiviteter som inhandling av livsmedel samt mindre nödvändiga aktiviteter som restaurangbesök vilket hade lett till att färre företag måste stänga ner eller göra nedskärningar.  
 
 == Frågeställning
 
-#note([*Vad tycks?*])
-
-#strike([Vilken precision kan uppnås av passiv lokalisering av wifiklienter med en Asus RT-AC86U wifirouter gällande platsbestämning?])
-
-Vilken precision kan uppnås vid bestämning av den infallande wifisignalens vinkel med en wifirouter märkt Asus RT-AC86U?
+Vilken precision kan uppnås vid bestämning av en wifienhets riktning med en wifirouter märkt Asus RT-AC86U? 
 
 #pagebreak(weak: true)
 
@@ -131,7 +129,7 @@ Triangulering och trilaterering är två olika sätt att platsbestämma något (
   ],
 ) <triangulation>
 
-Med två kända punkter $A$ och $B$, samt vinkeln till $O$ från respektive punkt, går det att triangulera $O$. Varje vinkel ger en stråle (de sträckade linjerna i @triangulation) varpå $O$ kan ligga. Där strålarna från $A$ och $B$ korsar varandra finns $O$.
+Med två kända punkter $A$ och $B$, samt vinkeln till $O$ från respektive punkt, går det att triangulera $O$. Varje vinkel ger en stråle (de streckade linjerna i @triangulation) varpå $O$ kan ligga. Där strålarna från $A$ och $B$ korsar varandra finns $O$.
 
 #figure(caption: [Trilaterering av $O$ från $A$, $B$ och $C$.], cetz.canvas(length: 0.75cm, {
   import cetz.draw: *
@@ -168,7 +166,7 @@ Trilaterering kräver avståndsmätningar till en okänd punkt $O$ från minst t
 
 Det finns en rad olika standarder och protokoll som nätverksenheter #footnote([Med "nätverksenheter" avses mobiltelefoner, datorer, servrar, routrar med mera; allt som är uppkopplat till internet och lite till.]) använder för att kommunicera med varandra. De mer abstrakta (icke-fysiska) protokollen, som HTTP (för webbsurfning) och SMTP (för mejl), gör ingen skillnad på om de förs över wifi eller trådbundet. Likaså spelar det ingen roll för wifikretsen huruvida bitarna som sänds och tas emot är HTTP, SMTP, nonsens eller något annat. I grund och botten handlar de flesta internetprotokoll om att representera information i binär form (i bitar) på ett eller annat sätt. De mest grundläggande protokollens syfte är att överföra dessa bitar genom den fysiska världen, till exempel genom en kopparkabel eller i luften.
 
-OSI-modellen, framtagen av #cite(<iso7498>, form: "prose"), är ett försök att kategorisera standardena för kommunikation nätverksenheter sinsemellan, och tanken är att varje _lager_ ska vara helt oberoende av de andra lagren och att lagren ska kunna kombineras obehindrat. HTTPS (HTTP Secure), till exempel, heter _secure_ eftersom det är krypterat, men namnet är missvisande eftersom informationen inte krypteras i HTTP(S)-lagret (lager 7) utan i lager 6, med TLS. HTTP, å andra sidan, är okrypterat och sålunda inte "inneslutet" av TLS i lager 6. På lager 7 är HTTP och HTTPS dock identiska, vilket gör att mycket HTTP-programkod (webbservrar, till exempel) kan nyttjas oavsett om kryptering används eller ej.
+OSI-modellen, framtagen av #cite(<iso7498>, form: "prose"), är ett försök att kategorisera standarderna för kommunikation nätverksenheter sinsemellan, och tanken är att varje _lager_ ska vara helt oberoende av de andra lagren och att lagren ska kunna kombineras obehindrat. HTTPS (HTTP Secure), till exempel, heter _secure_ eftersom det är krypterat, men namnet är missvisande eftersom informationen inte krypteras i HTTP(S)-lagret (lager 7) utan i lager 6, med TLS. HTTP, å andra sidan, är okrypterat och sålunda inte "inneslutet" av TLS i lager 6. På lager 7 är HTTP och HTTPS dock identiska, vilket gör att mycket HTTP-programkod (webbservrar, till exempel) kan nyttjas oavsett om kryptering används eller ej.
 
 #figure(kind: table, tablex(
   columns: 4,
@@ -274,7 +272,7 @@ OFDM används i alla wifistandarder från och med IEEE 802.11a @wifistandards, o
 
 I moderna wifiroutrar används flera antenner. Tillsammans bildar antennerna ett antennsystem där varje antenn utgör ett så kallat element. Om antennerna är uniformt fördelade längs en linje bildar de ett uniformt linjärt antennsystem (_ULA; Uniform Linear Array_ på engelska); se @interference. Routern som används i experimentet har ett uniformt linjärt antennsystem med tre element (vilket framgår i @rt-ac86u).
 
-En sändare kan införa en viss farförskjutning $phi$ mellan intilliggande antennelement och utnyttja interferens för att rikta signalen åt ett visst håll (så kallad _beamforming_). @beamforming illustrerar detta. En mottagare kan på motsatt sätt bestämma den infallande signalens vinkel $theta$ utifrån den uppmätta fasförskjutningen mellan angränsande element.
+En sändare kan införa en viss fasförskjutning $phi$ mellan intilliggande antennelement och utnyttja interferens för att rikta signalen åt ett visst håll (så kallad _beamforming_). @beamforming illustrerar detta. En mottagare kan på motsatt sätt bestämma den infallande signalens vinkel $theta$ utifrån den uppmätta fasförskjutningen mellan angränsande element.
 
 #figure(caption: [Interferensmönster för olika sorters linjära antennsystem. Våglängden $lambda$ är $1 "l.e."$ och färgningen visar den relativa (i respektive diagram) elongationen i varje punkt -- blått är negativt, vitt är noll och rött är positivt.], rect(
   inset: 12pt,
@@ -527,11 +525,11 @@ För att starta programmet gör vi (något), och
 /*
 Vad som kan undersökas med de medel vi har och vad det kan ge för slutsats. Platsbestämning av platsbestämningen (IE skolan eller hemma hos Åke eller Åkesson). 
 */
-De ekonomiska medeln tillgängliga för vårt förfogande kom från Norrnässtiftelsens stipendium vid summan ett tusen kronor. Nio hundra av dessa kronor användes vid inköp av en Asus RT-AC86U wifirouter genom Blocket. Wifiroutern Asus RT-AC86U kan bara mäta platta vinklar eftersom routerns antennsystem är endimensionellt samt ortogonalt mot horisontalplanet (se @interference). Detta begränsar vår möjlighet att anlända vid en fullkomlig slutsats eftersom en wifienhets relation i höjd till routern inte går att mäta. Till exempel går det inte att avgöra från vilken våning av en byggnad en viss signal kommer. 
+De ekonomiska medlen tillgängliga för vårt förfogande kom från Norrnässtiftelsens stipendium vid summan ett tusen kronor. Nio hundra av dessa kronor användes vid inköp av en Asus RT-AC86U wifirouter genom Blocket. Wifiroutern Asus RT-AC86U kan bara mäta platta vinklar eftersom routerns antennsystem är endimensionellt samt ortogonalt mot horisontalplanet (se @interference). Detta begränsar vår möjlighet att anlända vid en fullkomlig slutsats eftersom en wifienhets relation i höjd till routern inte går att mäta. Till exempel går det inte att avgöra från vilken våning av en byggnad en viss signal kommer. 
 
 Eftersom vi endast har en router att använda till experimentet är det inte heller möjligt att platsbestämma en avsändare genom dess vinklar mot en mängd andra mottagare eftersom triangulering kräver insamling av data från två eller fler mottagare. (Jämför @setup med @triangulation.) I stället mäts precisionen av vinkeln mellan avsändaren och routern. Precisionen som uppnås genom detta visar på precisionen platsbestämning genom triangulering med två eller fler av dessa wifiroutrar skulle vara. En större budget -- cirka två tusen kronor -- hade behövts för att kunna använda två eller till och med tre identiska routrar till att genomföra triangulering. 
 
-På grund av ekonomiska begränsningar samt den stora mängd programmering nödvändig för ett fullständigt genomförande av detta experiment är det uppenbart att en mer omfattande investering krävts. Tid var i synnherhet begränsande.
+På grund av ekonomiska begränsningar samt den stora mängd programmering nödvändig för ett fullständigt genomförande av detta experiment är det uppenbart att en mer omfattande investering krävts. Tid var i synnerhet begränsande.
 
 Med $d=#rtac86u_d$ och $lambda = c/ #qty("5", "GHz") approx #qty("6e-2", "m")$ är olikheten i @unambig_aoa (som måste uppfyllas för att vinklar mellan $-90 degree$ och $90 degree$ ska kunna mätas) falsk. Den uppenbara lösningen är att bygga om antennsystemet med förlängningskablar och ett mindre elementavstånd $d$, som #cite(<ubilocate>, form: "prose") gjorde i sin studie med samma router, men vi saknade de ekonomiska medlen för att konstruera något liknande.
 
@@ -541,7 +539,7 @@ Genom att modifiera routerns maskinvara kan CSI erhållas @csi: Programvaru-?mod
 
 Enheten placeras på ett bestämt avstånd från routern vid en bestämd vinkel enligt @setup.
 
-#figure(caption: [Ritning (ovanifrån) över rummet som experimentet utfördes i med routern ($A$) och laptopen ($O$). Routern är vänd med framsidan mot den streckade mittlinjen. Positiv vinkel innebär att $O$ är till höger om $A$ (sett från routerns baksida); negativ vinkel betyder till vänster.], cetz.canvas({
+#figure(caption: [Skiss (ovanifrån) över rummet som experimentet utfördes i med routern ($A$) och laptoppen ($O$). Routern är vänd med framsidan mot den streckade mittlinjen. Positiv vinkel innebär att $O$ är till höger om $A$ (sett från routerns baksida); negativ vinkel betyder till vänster.], cetz.canvas({
   import cetz.draw: *
 
   set-style(stroke: 0.5pt)
@@ -588,7 +586,7 @@ Ett pcap-paket genereras per antenn och wifiram och innehåller bland annat CSI 
 
 Bestämningen av den infallande signalens vinkel _(Angle of Arrival, AoA)_ görs enligt @aoa utifrån respektive fasförskjutning; dels mellan den mellersta och den högra antennen, dels mellan den vänstra och den högra antennen.
 
-Samplingsfrekvensen för CSI är ungefär #qty("230", "Hz") och AoA beräknas lika ofta. Experimentet genomförs med vinklarna $qty("-30", "degree"), qty("-20", "degree"), qty("-10", "degree"), dots.c, qty("30", "degree")$. AoA beräknas i cirka #qty("10", "s") per vinkel.
+Samplingsfrekvensen för CSI är ungefär #qty("230", "Hz") och AoA beräknas lika ofta. Experimentet genomförs för vinklarna $qty("-30", "degree"), qty("-20", "degree"), qty("-10", "degree"), dots.c, qty("30", "degree")$. AoA beräknas i cirka #qty("10", "s") per vinkel.
 
 // #raw(read("snippets/aoa.rs"), lang: "rust")
 
@@ -600,52 +598,72 @@ Samplingsfrekvensen för CSI är ungefär #qty("230", "Hz") och AoA beräknas li
 
 // #note([*Till handledaren och opponenterna:* Vår mätdata är konstig och vi ämnar upprepa experimentet för olika vinklar och avstånd, i ett större rum (Åke har ett klaustrofobiskt litet rum). Vi har inte testat systemet utomhus heller, men det planerar vi eventuellt att göra.])
 
-På kanal 52, med bandbredden 40 MHz (vilket innebär att frekvenserna #qtyrange("5250", "5290", "MHz", delimiter: "\"till\"") används), och med signalkällan ("enheten", en MacBook Air (2020)) #qty("3.0", "m") från routern, avvek typvärdet för $theta$ från det faktiska värdet, #qty("0", "degree"), med som mest #qty("10", "degree") under experimentet. Medelvärdet för $theta$ under hela experimentet var #qty("0.244", "degree") och standardavvikelsen var $#qty("11.9", "degree")$.
+På kanal 52, med bandbredden 40 MHz (vilket innebär att frekvenserna #qtyrange("5250", "5290", "MHz", delimiter: "\"till\"") används), och med signalkällan ("enheten", en MacBook Air (2020)) #qty("3.0", "m") från routern, avvek typvärdet för $theta$ från det faktiska värdet, #qty("0", "degree"), med som mest #qty("10", "degree") under experimentet. Medelvärdet för $theta$ under hela försöket var #qty("0.2", "degree") och standardavvikelsen var $#qty("11.9", "degree")$.
 
-#figure(image("results/2d.png"), caption: [Histogram över beräknad AoA för varje underbärare över tid. Vita områden har lägst frekvens #footnote([Frekvens som i förekomst -- *inte* fysikalisk frekvens.]) <statfreq> (noll) och blå har högst.]) <2d_histogram>
+#figure(image("results/2d.png"), caption: [Tvådimensionellt histogram över beräknad AoA för varje underbärare över tid. Vita områden har lägst frekvens #footnote([Frekvens som i förekomst -- *inte* fysikalisk frekvens.]) <statfreq> (noll) och blå har högst.]) <2d_histogram>
 
-#figure(image("results/0deg.png"), caption: [Histogram över hur ofta varje $theta$ beräknades, det vill säga summan av frekvenserna @statfreq i @2d_histogram tidvis (horisontellt i diagrammet).])
+#figure(image("results/0deg.png"), caption: [Histogram över hur ofta varje $theta$ beräknades, det vill säga summan av frekvenserna @statfreq i @2d_histogram tidvis (horisontellt i diagrammet).]) <1d_histogram>
 
-Diagrammen ovan visar detaljerad data om beräknad AoA då den verkliga vinkeln var #qty("0", "degree"). Mätningarna upprepades för flera vinklar; resultatet återfinns i @results_tab.
+Diagrammen ovan visar detaljerad data för beräknad AoA då den verkliga vinkeln var #qty("0", "degree"). Mätningarna upprepades för flera vinklar; resultatet återfinns i @results_tab.
 
-#figure(caption: [Genomsnittliga uppmätta AoA ($overline(theta)$) och standardavvikelser ($sigma$) för olika vinklar mellan routern och enheten.], table(
-  columns: 4,
+#figure(caption: [Genomsnittliga uppmätta AoA $overline(theta)$ och standardavvikelser $sigma_"mätning"$ för olika vinklar mellan routern och enheten (det vill säga standardavvikelsen av _samtliga_ beräknade AoA; se @1d_histogram) samt den totala standardavvikelsen av alla avvikelser $d$, $sigma_"total"$.], table(
+  columns: 5,
   stroke: (x, y) => if y == 0 { none } else { (x: none, y: 0.5pt) },
   align: (x, y) => if y == 0 { center } else { right },
+  row-gutter: (auto, auto, auto, auto, auto, auto, auto, 2.2pt, auto),
   table.header(
     [*Faktisk vinkel*],
     [*Avstånd till routern*],
     [$overline(theta)$],
-    [$sigma$]
+    [*Avvikelse $d$*],
+    [$sigma_"mätning"$]
   ),
+  //table.cell(rowspan: 7)[],
   [#qty("-30", "degree")],
   table.cell(rowspan: 7, align: center + horizon)[#qty("3,0", "m")],
   [#qty("-31.2", "degree")],
+  [#qty("1.2", "degree")],
   [#qty("13.2", "degree")],
   
   [#qty("-20", "degree")],
   [#qty("-22.0", "degree")],
+  [#qty("-2.0", "degree")],
   [#qty("10,3", "degree")],
   
   [#qty("-10", "degree")],
   [#qty("-9.4", "degree")],
+  [#qty("0.6", "degree")],
   [#qty("12.5", "degree")],
   
   [#qty("0", "degree")],
+  [#qty("0.2", "degree")],
   [#qty("0.2", "degree")],
   [#qty("11.9", "degree")],
 
   [#qty("10", "degree")],
   [#qty("9.4", "degree")],
+  [#qty("0.6", "degree")],
   [#qty("11.5", "degree")],
   
   [#qty("20", "degree")],
   [#qty("20.2", "degree")],
+  [#qty("0.2", "degree")],
   [#qty("10.9", "degree")],
   
   [#qty("30", "degree")],
   [#qty("30.6", "degree")],
+  [#qty("0.6", "degree")],
   [#qty("12.7", "degree")],
+
+  table.hline(),
+
+  table.cell(colspan: 3)[*Genomsnittlig avvikelse*],
+  [*#qty("0.77", "degree")*],
+  [],
+
+  table.cell(colspan: 3)[*$sigma_"total"$*],
+  [*#qty("0.59", "degree")*],
+  [],
 )) <results_tab>
 
 #pagebreak(weak: true)
@@ -654,15 +672,11 @@ Diagrammen ovan visar detaljerad data om beräknad AoA då den verkliga vinkeln 
 
 //== Tolkning
 
-#note([*Jalle, kolla igenom detta avsnitt.*])
+Ju närmare en wifienhet är till en router, desto högre precision i sträcka uppnås vid lokalisering av enheten rent geometriskt (se @ideal_setup). Eftersom platsbestämningen oftast kommer ske inomhus i närheten av en wifirouter innebär en felbedömning på $#qty("2,0", "degree")$ endast ett fel på högst ett fåtal meter. Många rum i offentliga byggnader är redan utrustade med wifiroutrar #footnote([Egentligen accesspunkter -- bryggor mellan det trådbundna och det trådlösa nätverket. Det vedertagna uttrycket är dock _router_.]) och det skulle därför inte krävas en stor hårdvaruinvestering för att omprogrammera dem i statistiksyfte. Detta anser vi inte är helt orimligt ekonomiskt då det kunde utföras av två obetalda gymnasieelever inom loppet av ett par månader. 
 
-#strike([Den precision som gick att uppnås med metoden var alltid inom tio grader av vinkeln mellan avsändare och mottagare.]) 
+Precisionen som uppnåddes med wifiroutern Asus RT-AC86U är dock alldeles för låg för att denna metod ska kunna användas vid platsbestämning av wifiklienter utomhus. För att kompensera för en låg vinkelprecision krävs många wifiroutrar på en liten yta så att vinkelfelet inte leder till stora avståndsfel. Eftersom ytterst få wifiroutrar redan finns utomhus innebär detta att en mycket stor investering i hårdvara är nödvändig för att utvinna användbara resultat. Å andra sidan är sikten utomhus vanligen friare, vilket innebär färre störningselement för underbärarna och på så sätt att fler underbärare träffar antennsystemet direkt, utan att först reflekteras, och i det avseendet en högre precision.
 
-Ju närmare en wifi-enhet är till en router, desto högre precision uppnås vid lokalisering av enheten (se @ideal_setup). Eftersom platsbestämningen oftast kommer ske inomhus i närhet av en wifirouter innebär en felbedömning på (det värde Åke tycker vi borde skriva här) endast ett fel på ett par meter. Många rum har redan wifirouter och det skulle därför inte krävas en stor investering i hårdvara för att omprogrammera dem i statistiksyfte. Det mest effektiva sätt att samla in platsdata på detta vis vore ifall de från början var programmerade att avläsa avsändares position. Detta anser vi inte är helt orimligt ekonomiskt, eftersom det gick att utföras av två obetalda gymnasieelever på ett par månader. 
-
-Precisionen som gick att uppnås med wifiroutern Asus RT-AC86U är dock alldeles för låg för att denna metod ska kunna användas vid platsbestämning av wifi-klienter utomhus. För att kompensera för en precision på (det värde Åke anser vi borde ha) krävs många wifi-routrar. Eftersom ytterst få wifiroutrar redan finns utomhus innebär detta att en mycket stor investering i hårdvara är nödvändig för att utvinna användbara resultat. Å andra sidan är sikten utomhus vanligen friare, vilket innebär färre störningselement för underbärarna och på så sätt att fler underbärare träffar antennsystemet direkt, utan att först reflekteras, och på så sätt en högre precision.
-
-#figure(caption: [Platsbestämning av $O$ med hjälp av två routrar $A$ och $B$ i samma utförande som i detta experiment. Felmarginalen om #qty("10", "degree") begränsar $O$:s position till en fyrhörning (ljusgrön i figuren).], cetz.canvas({
+#figure(caption: [Platsbestämning av $O$ med hjälp av två routrar $A$ och $B$ i samma utförande som i detta experiment. Felmarginalen (här #qty("+-10", "degree")) begränsar $O$:s position till en fyrhörning (ljusgrön i figuren).], cetz.canvas({
   import cetz.draw: *
 
   let (a, b) = ((-3,0), (3, 0))
@@ -699,59 +713,15 @@ Precisionen som gick att uppnås med wifiroutern Asus RT-AC86U är dock alldeles
 
 Vid en första anblick är det inte konstigt att förvänta sig att alla underbärare ska nå antennerna från samma håll och därmed ge samma värde för $theta$. OFDM _förutsätter_ i själva verket att de olika underbärarna tar olika väg, eftersom olika frekvenser fortplantas på olika vis vid reflektion och refraktion mot olika material, och så vidare, (se @ofdm) vilket visserligen går tvärt emot undersökningens syfte, men å andra sidan kan det användas till att analysera fysiska förhållanden i rummet. #cite(<schafer2021human>, form: "prose") och #cite(<wifivision>, form: "prose") använde till exempel CSI för att känna igen rörelsemönster hos människor enbart baserat på hur en wifisignals karaktär ändras när människorna i rummet rör sig.
 
-Routern stod nära en vägg, i stället för fritt i rummet, vilket medför höga risker för att signalen reflekteras mot väggen och _ytterligare_ ökar antalet "felriktade" underbärare.
+Routern stod nära en vägg, i stället för fritt i rummet, vilket medförde höga risker för att signalen reflekterades mot väggen och _ytterligare_ ökade antalet "felriktade" underbärare. Detta minskar resultatets validitet. Utöver detta  undersöktes bara precisionen i en miljö samt med ett avstånd vilket vidare minskar resultatets validitet. 
 
 //== Tidigare forskning
 
-#pagebreak(weak: true)
-
 = Slutsats
 
-#note([*... och detta.*])
-
- Med wifiroutern Asus RT-AC86U går det att uppnå en precision där den genomsnittliga uppmätta AoA mellan router och wifi-enhet skiljer sig #qty("0.244", "degree") från den faktiska vinkeln samt har en standardavvikelse på $#qty("11.9", "degree")$.
-
-
+Med wifiroutern Asus RT-AC86U går det att uppnå en precision där den genomsnittliga uppmätta AoA mellan routern och wifienheten avviker med som mest #qty("2", "degree") från den faktiska vinkeln samt en medelavvikelse på $#qty("0,77", "degree")$. 
 
 
 #pagebreak(weak: true)
 
 #bibliography(style: "apa", "bibliography.bib")
-
-
-/*
-Jarl:
-
-Abstract
-
-Tillkännagivanden
-
-1.1 Presentation
-
-1.2 Syfte 
-
-1.3 Frågeställning (Kräver asvstämning med Åke)
-
-3.2 Mätmetod
-
-3.3 Avgränsningar (kräver avstämning med Åke)
-
-4 Resultat och analys (Kräver utförande av experiment) 
-
-5.1 Tolkning (kräver utförande av experiment)
-
-5.2 Validitet, reliabilitet och felkällor: (Utförande önskas)
-Nämn problem med den plats vi är på (tjocka väggar som ökar reflektionen och gör problemet värre)
-
-5.3 Tidigare forskning
-
-6 Slutsats
-
-
-
-
-
-
-
-
-*/

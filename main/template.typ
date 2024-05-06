@@ -87,7 +87,7 @@
 
   // pagebreak(weak: true)
 
-  set text(lang: "en")
+  set text(lang: "en", region: "gb")
   heading(
     outlined: false,
     numbering: none,
